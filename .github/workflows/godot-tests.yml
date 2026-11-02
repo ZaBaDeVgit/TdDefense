@@ -45,13 +45,13 @@ jobs:
           exit "$result"
       - name: Comprobar renderizado real
         run: |
-          if ! command -v xvfb-run >/dev/null || [ ! -f /usr/share/vulkan/icd.d/lvp_icd.x86_64.json ]; then
+          if ! command -v xvfb-run >/dev/null; then
             sudo apt-get update -qq
-            sudo apt-get install -y -qq xvfb mesa-vulkan-drivers
+            sudo apt-get install -y -qq xvfb
           fi
           set +e
-          export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json TD_VISUAL_IMAGE=/tmp/tddefense-visual.jpg
-          timeout 180 xvfb-run -a -s '-screen 0 1600x900x24' /tmp/godot/Godot_v4.3-stable_linux.x86_64 --audio-driver Dummy --rendering-method forward_plus --resolution 1600x900 --path godot --script res://tests/visual_smoke.gd 2>&1 | tee /tmp/visual.log
+          export LIBGL_ALWAYS_SOFTWARE=1 TD_VISUAL_IMAGE=/tmp/tddefense-visual.jpg
+          timeout 180 xvfb-run -a -s '-screen 0 1600x900x24' /tmp/godot/Godot_v4.3-stable_linux.x86_64 --audio-driver Dummy --rendering-method gl_compatibility --resolution 1600x900 --path godot --script res://tests/visual_smoke.gd 2>&1 | tee /tmp/visual.log
           result=${PIPESTATUS[0]}
           if grep -Eq '^(SCRIPT ERROR|ERROR|FALLO):' /tmp/visual.log; then result=1; fi
           summary=$(grep 'VISUAL:' /tmp/visual.log | tail -1)
