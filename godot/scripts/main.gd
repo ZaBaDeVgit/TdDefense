@@ -575,7 +575,7 @@ func build_terrain(sc: Dictionary) -> void:
 	var deco: Array = sc["deco"]
 	# Suelo exterior
 	var outer := TDModels.box(world, Vector3(260, 0.4, 260), make_mat("#" + base_col.darkened(0.35).to_html(false)), Vector3(W * TDData.TILE * 0.5, -0.45, H * TDData.TILE * 0.5))
-	outer.receive_shadow = true
+	outer.receive_shadows = true
 	for r in range(H):
 		for c in range(W):
 			var t := get_tile(c, r)
@@ -583,20 +583,20 @@ func build_terrain(sc: Dictionary) -> void:
 			var gcol: Color = variants[rng.randi() % 3]
 			if t == "~":
 				var w := TDModels.box(world, Vector3(TDData.TILE, 0.3, TDData.TILE), water_mat, Vector3(p.x, -0.12, p.z))
-				w.receive_shadow = true
+				w.receive_shadows = true
 				continue
 			# Terreno base de cada casilla
 			var g := TDModels.box(world, Vector3(TDData.TILE, 0.4, TDData.TILE), make_mat("#" + gcol.to_html(false)), Vector3(p.x, -0.2, p.z))
-			g.receive_shadow = true
+			g.receive_shadows = true
 			if t == "P":
 				var rd := TDModels.box(world, Vector3(TDData.TILE * 1.02, 0.06, TDData.TILE * 1.02), road_mat, Vector3(p.x, 0.03, p.z))
-				rd.receive_shadow = true
+				rd.receive_shadows = true
 			elif t == "#":
 				var h := rng.randf_range(1.6, 3.4)
 				var bcols: Array = ["#8d8a80", "#a39a86", "#6f7480"]
 				var bcol: String = bcols[rng.randi() % 3]
 				var bld := TDModels.box(world, Vector3(TDData.TILE * 0.86, h, TDData.TILE * 0.86), make_mat(bcol), Vector3(p.x, h / 2.0, p.z))
-				bld.receive_shadow = true
+				bld.receive_shadows = true
 				TDModels.box(world, Vector3(TDData.TILE * 0.9, 0.15, TDData.TILE * 0.9), TDModels.glow("#44c8ff", 0.8), Vector3(p.x, h + 0.08, p.z))
 			elif t == "." and rng.randf() < 0.38 and not deco.is_empty():
 				var kind: String = deco[rng.randi() % deco.size()]

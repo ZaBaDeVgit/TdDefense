@@ -148,19 +148,19 @@ static func build_wave(n: int) -> Array:
 	var groups: Array = []
 	groups.append({"type": "soldier", "count": 6 + n * 2, "gap": maxf(0.45, 0.9 - n * 0.02), "start": 0.0})
 	if n >= 2:
-		groups.append({"type": "shield", "count": 1 + n / 2, "gap": 1.6, "start": 3.0})
+		groups.append({"type": "shield", "count": 1 + floori(n / 2.0), "gap": 1.6, "start": 3.0})
 	if n >= 3 and n % 2 == 1:
-		groups.append({"type": "jeep", "count": 1 + n / 3, "gap": 2.2, "start": 5.0})
+		groups.append({"type": "jeep", "count": 1 + floori(n / 3.0), "gap": 2.2, "start": 5.0})
 	if n >= 4:
-		groups.append({"type": "spider", "count": 2 + n / 2, "gap": 1.2, "start": 8.0})
+		groups.append({"type": "spider", "count": 2 + floori(n / 2.0), "gap": 1.2, "start": 8.0})
 	if n >= 5 and n % 3 == 2:
-		groups.append({"type": "drone", "count": 2 + n / 4, "gap": 2.4, "start": 6.0})
+		groups.append({"type": "drone", "count": 2 + floori(n / 4.0), "gap": 2.4, "start": 6.0})
 	if n >= 6 and n % 2 == 0:
-		groups.append({"type": "tank", "count": 1 + (n - 4) / 4, "gap": 7.0, "start": 10.0})
+		groups.append({"type": "tank", "count": 1 + floori((n - 4) / 4.0), "gap": 7.0, "start": 10.0})
 	if n >= 7 and n % 2 == 1:
-		groups.append({"type": "truck", "count": 1 + n / 6, "gap": 4.0, "start": 12.0})
+		groups.append({"type": "truck", "count": 1 + floori(n / 6.0), "gap": 4.0, "start": 12.0})
 	if n >= 9 and n % 2 == 0:
-		groups.append({"type": "heli", "count": 1 + n / 8, "gap": 8.0, "start": 9.0})
+		groups.append({"type": "heli", "count": 1 + floori(n / 8.0), "gap": 8.0, "start": 9.0})
 	if n == 5:
 		groups.append({"type": "truck", "boss": true, "count": 1, "gap": 0.0, "start": 16.0})
 	if n == 10:

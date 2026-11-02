@@ -146,8 +146,8 @@ static func explosion(world: Node3D, pos: Vector3, size: float = 1.0, color: Col
 # Rayo (haz) entre dos puntos que se desvanece
 static func beam(world: Node3D, a: Vector3, b: Vector3, color: Color, width: float = 0.06, life: float = 0.12) -> void:
 	var d := b - a
-	var len := d.length()
-	if len < 0.01:
+	var seg_len := d.length()
+	if seg_len < 0.01:
 		return
 	var holder := Node3D.new()
 	world.add_child(holder)
@@ -158,7 +158,7 @@ static func beam(world: Node3D, a: Vector3, b: Vector3, color: Color, width: flo
 	var cm := CylinderMesh.new()
 	cm.top_radius = width
 	cm.bottom_radius = width
-	cm.height = len
+	cm.height = seg_len
 	cm.radial_segments = 6
 	mi.mesh = cm
 	mi.rotation = Vector3(PI / 2, 0, 0)
