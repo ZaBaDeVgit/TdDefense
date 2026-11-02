@@ -62,7 +62,8 @@ jobs:
             log="${log//$'\n'/'%0A'}"
             log="${log//$'\r'/'%0D'}"
             echo "::error::$log"
-          elif [ -s /tmp/tddefense-visual.jpg ]; then
+          fi
+          if [ -s /tmp/tddefense-visual.jpg ]; then
             base64 -w0 /tmp/tddefense-visual.jpg | fold -w3000 | awk '{printf "::notice::TDIMG%03d:%s\n", NR, $0}'
           fi
           exit "$result"

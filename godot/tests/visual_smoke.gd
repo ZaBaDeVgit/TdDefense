@@ -49,4 +49,11 @@ func run_visual_smoke() -> void:
 	print("VISUAL: imagen renderizada; %d colores distintos en la muestra" % colors.size())
 	game.queue_free()
 	await process_frame
+	# Liberar las cachés estáticas antes de cerrar el renderizador.
+	TDModels._mats.clear()
+	TDModels._soft_noise = null
+	TDModels._camo_noise = null
+	TDFx._soft = null
+	await process_frame
+	await RenderingServer.frame_post_draw
 	quit(0)
