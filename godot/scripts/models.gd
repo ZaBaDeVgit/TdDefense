@@ -47,6 +47,59 @@ static func mat(key: String) -> StandardMaterial3D:
 			if key.begins_with("#"):
 				col = Color(key)
 	m.albedo_color = col
+	if key == "camo" or key == "olive":
+		m.albedo_texture = camo_noise()
+		m.uv1_scale = Vector3(2, 2, 1)
+	_mats[key] = m
+	return m
+
+# Texturas procedurales (ruido de Godot), creadas una sola vez
+static var _soft_noise: NoiseTexture2D = null
+static var _camo_noise: NoiseTexture2D = null
+
+static func soft_noise() -> Texture2D:
+	if _soft_noise == null:
+		var fn := FastNoiseLite.new()
+		fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		fn.frequency = 0.05
+		fn.fractal_octaves = 3
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 1.0])
+		g.colors = PackedColorArray([Color(0.8, 0.8, 0.8), Color(1, 1, 1)])
+		_soft_noise = NoiseTexture2D.new()
+		_soft_noise.noise = fn
+		_soft_noise.color_ramp = g
+		_soft_noise.width = 256
+		_soft_noise.height = 256
+		_soft_noise.seamless = true
+	return _soft_noise
+
+static func camo_noise() -> Texture2D:
+	if _camo_noise == null:
+		var fn := FastNoiseLite.new()
+		fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		fn.frequency = 0.035
+		fn.fractal_octaves = 4
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+		g.colors = PackedColorArray([Color(0.5, 0.5, 0.5), Color(0.85, 0.85, 0.85), Color(1, 1, 1)])
+		_camo_noise = NoiseTexture2D.new()
+		_camo_noise.noise = fn
+		_camo_noise.color_ramp = g
+		_camo_noise.width = 256
+		_camo_noise.height = 256
+		_camo_noise.seamless = true
+	return _camo_noise
+
+static func ground_mat(col: Color) -> StandardMaterial3D:
+	var key := "gnd:" + col.to_html(false)
+	if _mats.has(key):
+		return _mats[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.albedo_texture = soft_noise()
+	m.uv1_scale = Vector3(3, 3, 1)
+	m.roughness = 0.95
 	_mats[key] = m
 	return m
 
@@ -157,6 +210,12 @@ static func build_tower(type: String, level: int) -> Node3D:
 			turret.position = Vector3(0, 2.8, 0)
 			sph(turret, 0.45, glow("#7fe9ff", 3.0), Vector3(0, 0, 0))
 			torus(turret, 0.5, 0.6, glow("#7fe9ff", 1.5), Vector3(0, 0, 0), Vector3(PI / 2, 0, 0))
+	# Detalles comunes: pernos, cables y luz de estado
+	for i in range(6):
+		var ang := float(i) * TAU / 6.0
+		sph(root, 0.05, mat("steel"), Vector3(cos(ang) * 1.22, 0.5, sin(ang) * 1.22))
+	cyl(root, 0.03, 0.03, 0.9, mat("rubber"), Vector3(1.05, 0.7, 0.5))
+	sph(root, 0.07, glow("#7dff7a", 3.0), Vector3(-0.9, 0.55, 0.9))
 	return root
 
 # ---------------- Enemigos ----------------
@@ -228,6 +287,23 @@ static func build_enemy(type: String) -> Node3D:
 			rotors.append(rotor)
 			box(rotor, Vector3(6.0, 0.04, 0.3), mat("dark"), Vector3.ZERO)
 			box(rotor, Vector3(0.3, 0.04, 6.0), mat("dark"), Vector3.ZERO)
+	match type:
+		"soldier", "shield":
+			box(body, Vector3(0.42, 0.55, 0.18), mat("dark"), Vector3(0, 1.05, 0.25))
+			box(body, Vector3(0.3, 0.08, 0.3), mat("rubber"), Vector3(0, 0.02, 0.0))
+		"jeep":
+			box(body, Vector3(1.3, 0.42, 0.04), mat("glass_clear"), Vector3(0, 1.05, -0.32), Vector3(-0.3, 0, 0))
+			sph(body, 0.1, glow("#ffe9b0", 3.0), Vector3(-0.5, 0.6, -1.02))
+			sph(body, 0.1, glow("#ffe9b0", 3.0), Vector3(0.5, 0.6, -1.02))
+		"tank":
+			for z in [-1.2, -0.6, 0.0, 0.6, 1.2]:
+				for sx in [-1.25, 1.25]:
+					cyl(body, 0.16, 0.16, 0.12, mat("rubber"), Vector3(sx, 0.25, z), Vector3(0, 0, PI / 2))
+			sph(body, 0.22, mat("steel"), Vector3(0.3, 1.4, 0.4))
+		"truck":
+			box(body, Vector3(1.7, 0.5, 0.05), mat("glass_clear"), Vector3(0, 1.4, -1.82))
+		"heli":
+			sph(body, 0.6, mat("glass_clear"), Vector3(0, 0.35, -1.0), Vector3(1, 0.9, 0.8))
 	root.set_meta("legs", legs)
 	root.set_meta("rotors", rotors)
 	return root

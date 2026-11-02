@@ -85,6 +85,19 @@ var lbl_end_title: Label
 var lbl_end_text: Label
 var flash_rect: ColorRect
 var msg_t := 0.0
+var btn_quality: Button
+var btn_menu: Button
+var lbl_fps: Label
+var top_panel: PanelContainer
+var bottom_panel: PanelContainer
+var quality := 2
+var fps_t := 0.0
+var drag_key := ""
+var drag_active := false
+var drag_start := Vector2.ZERO
+var drag_preview: Control = null
+var drag_release_frame := -10
+var screens: Dictionary = {}
 
 func _ready() -> void:
 	rng.randomize()
@@ -162,7 +175,8 @@ func build_hud() -> void:
 	ui.add_child(hud_root)
 
 	# Barra superior
-	var top := panel()
+	top_panel = panel()
+	var top := top_panel
 	top.position = Vector2(12, 10)
 	hud_root.add_child(top)
 	var top_h := HBoxContainer.new()
@@ -180,6 +194,12 @@ func build_hud() -> void:
 	top_h.add_child(btn_speed)
 	btn_pause = mk_button("Pausa (Esc)", toggle_pause, Vector2(120, 34), 14)
 	top_h.add_child(btn_pause)
+	btn_quality = mk_button("Gráficos: Alta", on_quality, Vector2(170, 34), 14)
+	top_h.add_child(btn_quality)
+	btn_menu = mk_button("Menú", on_menu, Vector2(90, 34), 14)
+	top_h.add_child(btn_menu)
+	lbl_fps = mk_label("60 FPS", 14, Color("#7dff7a"))
+	top_h.add_child(lbl_fps)
 
 	# Mensajes
 	lbl_msg = mk_label("", 22, COL_TEXT)
@@ -207,7 +227,8 @@ func build_hud() -> void:
 	ih.add_child(btn_sell)
 
 	# Barra inferior: torres, habilidades y oleadas
-	var bottom := panel()
+	bottom_panel = panel()
+	var bottom := bottom_panel
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bottom.offset_top = -118
 	bottom.offset_bottom = -12
@@ -220,8 +241,9 @@ func build_hud() -> void:
 	for i in range(TDData.TOWER_ORDER.size()):
 		var key: String = TDData.TOWER_ORDER[i]
 		var t: Dictionary = TDData.TOWERS[key]
-		var b := mk_button("%d · %s\n$%d" % [i + 1, t["name"], t["cost"]], on_build.bind(key), Vector2(132, 58), 14)
+		var b := mk_button("%s\n$%d" % [t["name"], t["cost"]], on_build.bind(key), Vector2(150, 58), 14)
 		tower_btns[key] = b
+		b.gui_input.connect(on_tower_gui.bind(key))
 		bh.add_child(b)
 	var sep := VSeparator.new()
 	bh.add_child(sep)
@@ -236,43 +258,96 @@ func build_hud() -> void:
 	btn_wave = mk_button("▶ Oleada 1", on_start_wave, Vector2(170, 58), 18)
 	bh.add_child(btn_wave)
 
+func make_screen() -> Control:
+	var c := Control.new()
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.visible = false
+	return c
+
+func center_of(c: Control) -> CenterContainer:
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.add_child(cc)
+	return cc
+
 func build_menu() -> void:
 	menu_root = Control.new()
 	menu_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	menu_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(menu_root)
 	var shade := ColorRect.new()
-	shade.color = Color(0.02, 0.04, 0.08, 0.55)
+	shade.color = Color(0.02, 0.04, 0.08, 0.35)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	menu_root.add_child(shade)
-	var vwrap := VBoxContainer.new()
-	vwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	menu_root.add_child(vwrap)
-	var sp1 := Control.new()
-	sp1.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vwrap.add_child(sp1)
-	var hwrap := HBoxContainer.new()
-	vwrap.add_child(hwrap)
-	var ml := MarginContainer.new()
-	ml.add_theme_constant_override("margin_left", 60)
-	hwrap.add_child(ml)
-	var box := panel(Color(0.02, 0.05, 0.1, 0.85))
-	box.custom_minimum_size = Vector2(520, 0)
-	ml.add_child(box)
-	var sp2 := Control.new()
-	sp2.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vwrap.add_child(sp2)
+
+	# Pantalla principal
+	var s_main := make_screen()
+	menu_root.add_child(s_main)
+	screens["main"] = s_main
+	var box := panel(Color(0.02, 0.05, 0.1, 0.88))
+	box.custom_minimum_size = Vector2(440, 0)
+	center_of(s_main).add_child(box)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 12)
 	box.add_child(v)
-	v.add_child(mk_label("TD DEFENSE", 52, COL_ACCENT))
-	v.add_child(mk_label("Defensa militar futurista · elige un escenario", 16, Color("#9fc6df")))
+	v.add_child(mk_label("TD DEFENSE", 56, COL_ACCENT))
+	v.add_child(mk_label("Defensa militar futurista", 18, Color("#9fc6df")))
+	v.add_child(mk_button("Jugar", func(): show_screen("maps"), Vector2(400, 50), 20))
+	v.add_child(mk_button("Cómo jugar", func(): show_screen("help"), Vector2(400, 46), 18))
+	v.add_child(mk_button("Salir", on_quit, Vector2(400, 46), 18))
+
+	# Seleccion de escenario
+	var s_maps := make_screen()
+	menu_root.add_child(s_maps)
+	screens["maps"] = s_maps
+	var box2 := panel(Color(0.02, 0.05, 0.1, 0.9))
+	center_of(s_maps).add_child(box2)
+	var v2 := VBoxContainer.new()
+	v2.add_theme_constant_override("separation", 14)
+	box2.add_child(v2)
+	v2.add_child(mk_label("Elige un escenario", 34, COL_ACCENT))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	v2.add_child(grid)
 	for i in range(TDData.SCENARIOS.size()):
 		var sc: Dictionary = TDData.SCENARIOS[i]
-		v.add_child(mk_button("%s\n%s" % [sc["name"], sc["desc"]], on_play.bind(i), Vector2(480, 64), 16))
-	v.add_child(mk_button("Salir", on_quit, Vector2(480, 42), 16))
-	v.add_child(mk_label("Torres 1-5 · Esc: pausa/cancelar · Clic derecho: cancelar · Flechas/WASD: mover cámara · Rueda: zoom", 13, Color("#9fc6df")))
+		grid.add_child(mk_button("%s\n%s" % [sc["name"], sc["desc"]], on_play.bind(i), Vector2(440, 96), 15))
+	v2.add_child(mk_button("← Volver", func(): show_screen("main"), Vector2(200, 42), 16))
+
+	# Como jugar
+	var s_help := make_screen()
+	menu_root.add_child(s_help)
+	screens["help"] = s_help
+	var box3 := panel(Color(0.02, 0.05, 0.1, 0.9))
+	center_of(s_help).add_child(box3)
+	var v3 := VBoxContainer.new()
+	v3.add_theme_constant_override("separation", 12)
+	box3.add_child(v3)
+	v3.add_child(mk_label("Cómo jugar", 34, COL_ACCENT))
+	var txt := mk_label("""Arrastra una torre desde la barra inferior hasta una casilla verde del mapa.
+Haz clic en una torre construida para mejorarla (hasta nivel 3) o venderla.
+Pulsa ▶ Oleada para empezar. Los enemigos siguen el camino hasta tu base.
+Cada enemigo abatido da oro. Si pierdes todas las vidas, la base cae.
+Habilidades: Misiles y Radar requieren un objetivo; Nuclear, Escudo y Botiquín son inmediatas.
+
+Controles con ratón:
+· Arrastrar con el botón central: mover la cámara
+· Rueda: zoom · Acercar el ratón a los bordes: desplazar
+· Clic derecho: cancelar · Esc: pausa""", 16, COL_TEXT)
+	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	txt.custom_minimum_size = Vector2(680, 0)
+	v3.add_child(txt)
+	v3.add_child(mk_button("← Volver", func(): show_screen("main"), Vector2(200, 42), 16))
+	show_screen("main")
+
+func show_screen(which: String) -> void:
+	for k in screens.keys():
+		(screens[k] as Control).visible = (k == which)
 
 func build_pause() -> void:
 	pause_root = Control.new()
@@ -326,6 +401,7 @@ func show_menu() -> void:
 	in_game = false
 	paused = false
 	menu_root.visible = true
+	show_screen("main")
 	hud_root.visible = false
 	pause_root.visible = false
 	end_root.visible = false
@@ -545,7 +621,7 @@ func setup_environment(sc: Dictionary) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky_res
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.8
+	env.ambient_light_energy = 1.0
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = 1.05
 	env.glow_enabled = true
@@ -556,7 +632,12 @@ func setup_environment(sc: Dictionary) -> void:
 	env.fog_light_color = Color(sc["sky_bottom"])
 	env.fog_density = 0.006
 	env.ssao_enabled = true
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.18
+	env.adjustment_contrast = 1.08
+	env.adjustment_brightness = 1.03
 	env_node.environment = env
+	apply_quality()
 	var night: bool = sc["id"] == "ciudad"
 	sun.light_energy = 1.0 if night else 2.2
 	sun.light_color = Color("#9fb4ff") if night else Color("#ffe2b0")
@@ -584,7 +665,7 @@ func build_terrain(sc: Dictionary) -> void:
 				var _w := TDModels.box(world, Vector3(TDData.TILE, 0.3, TDData.TILE), water_mat, Vector3(p.x, -0.12, p.z))
 				continue
 			# Terreno base de cada casilla
-			var _g := TDModels.box(world, Vector3(TDData.TILE, 0.4, TDData.TILE), make_mat("#" + gcol.to_html(false)), Vector3(p.x, -0.2, p.z))
+			var _g := TDModels.box(world, Vector3(TDData.TILE, 0.4, TDData.TILE), TDModels.ground_mat(gcol), Vector3(p.x, -0.2, p.z))
 			if t == "P":
 				var _rd := TDModels.box(world, Vector3(TDData.TILE * 1.02, 0.06, TDData.TILE * 1.02), road_mat, Vector3(p.x, 0.03, p.z))
 			elif t == "#":
@@ -593,6 +674,14 @@ func build_terrain(sc: Dictionary) -> void:
 				var bcol: String = bcols[rng.randi() % 3]
 				var _bld := TDModels.box(world, Vector3(TDData.TILE * 0.86, h, TDData.TILE * 0.86), make_mat(bcol), Vector3(p.x, h / 2.0, p.z))
 				TDModels.box(world, Vector3(TDData.TILE * 0.9, 0.15, TDData.TILE * 0.9), TDModels.glow("#44c8ff", 0.8), Vector3(p.x, h + 0.08, p.z))
+				var half := TDData.TILE * 0.43
+				for fy in [0.4, 0.75]:
+					var yy: float = h * float(fy)
+					var win := TDModels.glow("#ffd9a0", 0.9)
+					TDModels.box(world, Vector3(TDData.TILE * 0.7, 0.14, 0.04), win, Vector3(p.x, yy, p.z + half))
+					TDModels.box(world, Vector3(TDData.TILE * 0.7, 0.14, 0.04), win, Vector3(p.x, yy, p.z - half))
+					TDModels.box(world, Vector3(0.04, 0.14, TDData.TILE * 0.7), win, Vector3(p.x + half, yy, p.z))
+					TDModels.box(world, Vector3(0.04, 0.14, TDData.TILE * 0.7), win, Vector3(p.x - half, yy, p.z))
 			elif t == "." and rng.randf() < 0.38 and not deco.is_empty():
 				var kind: String = deco[rng.randi() % deco.size()]
 				var prop := TDModels.build_prop(kind, rng)
@@ -1074,6 +1163,8 @@ func can_build(c: int, r: int) -> bool:
 	return get_tile(c, r) == "." and not tower_at.has(Vector2i(c, r))
 
 func on_build(key: String) -> void:
+	if Engine.get_process_frames() == drag_release_frame:
+		return
 	if not in_game or over:
 		return
 	skill_mode = ""
@@ -1258,10 +1349,70 @@ func flash_screen(c: Color, duration: float) -> void:
 	tw.tween_property(flash_rect, "color:a", 0.0, duration)
 
 # ====================== Bucle principal ======================
+func _input(event: InputEvent) -> void:
+	if drag_key == "":
+		return
+	if event is InputEventMouseMotion:
+		var mp: Vector2 = event.position
+		if not drag_active and mp.distance_to(drag_start) > 8.0:
+			start_drag_visual()
+		if drag_active and drag_preview:
+			drag_preview.position = mp + Vector2(18, 14)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		if drag_active:
+			var pos: Vector2 = event.position
+			if in_game and not over_hud(pos):
+				var cell := pick_cell(pos)
+				if cell.x >= 0:
+					place_tower(drag_key, cell)
+			build_type = ""
+			drag_release_frame = Engine.get_process_frames()
+			end_drag_visual()
+		drag_key = ""
+		drag_active = false
+
+func on_tower_gui(event: InputEvent, key: String) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if in_game and not over and not paused:
+			drag_key = key
+			drag_start = get_viewport().get_mouse_position()
+			drag_active = false
+
+func over_hud(pos: Vector2) -> bool:
+	if top_panel.get_global_rect().has_point(pos):
+		return true
+	if bottom_panel.get_global_rect().has_point(pos):
+		return true
+	if info_box.visible and info_box.get_global_rect().has_point(pos):
+		return true
+	return false
+
+func start_drag_visual() -> void:
+	drag_active = true
+	build_type = drag_key
+	selected = null
+	info_box.visible = false
+	sel_ring.visible = false
+	drag_preview = panel()
+	drag_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	drag_preview.add_child(mk_label(TDData.TOWERS[drag_key]["name"], 15, COL_ACCENT))
+	ui.add_child(drag_preview)
+
+func end_drag_visual() -> void:
+	if drag_preview and is_instance_valid(drag_preview):
+		drag_preview.queue_free()
+	drag_preview = null
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not in_game:
 		return
-	if event is InputEventMouseButton and event.pressed:
+	if event is InputEventMouseMotion:
+		var mm := event as InputEventMouseMotion
+		if (mm.button_mask & MOUSE_BUTTON_MASK_MIDDLE) != 0:
+			var k := cam_dist / 46.0 * 0.06
+			cam_target.x -= mm.relative.x * k
+			cam_target.z -= mm.relative.y * k
+	elif event is InputEventMouseButton and event.pressed:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			cam_dist = maxf(22.0, cam_dist - 2.5)
@@ -1271,19 +1422,31 @@ func _unhandled_input(event: InputEvent) -> void:
 			cancel_modes()
 		elif mb.button_index == MOUSE_BUTTON_LEFT:
 			on_world_click(mb.position)
-	elif event is InputEventKey and event.pressed and not event.echo:
-		var k := event as InputEventKey
-		if k.keycode == KEY_ESCAPE:
-			if build_type != "" or skill_mode != "" or selected != null:
-				cancel_modes()
-			else:
-				toggle_pause()
-		elif k.keycode >= KEY_1 and k.keycode <= KEY_5:
-			on_build(TDData.TOWER_ORDER[k.keycode - KEY_1])
-		elif k.keycode == KEY_SPACE:
-			on_start_wave()
-		elif k.keycode == KEY_P:
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if build_type != "" or skill_mode != "" or selected != null:
+			cancel_modes()
+		else:
 			toggle_pause()
+
+func on_quality() -> void:
+	quality = (quality + 1) % 3
+	apply_quality()
+
+func apply_quality() -> void:
+	var names := ["Baja", "Media", "Alta"]
+	btn_quality.text = "Gráficos: " + names[quality]
+	sun.shadow_enabled = quality >= 1
+	var env: Environment = env_node.environment
+	if env:
+		env.ssao_enabled = quality == 2
+		env.glow_enabled = quality >= 1
+	match quality:
+		0:
+			get_viewport().msaa_3d = Viewport.MSAA_DISABLED
+		1:
+			get_viewport().msaa_3d = Viewport.MSAA_2X
+		_:
+			get_viewport().msaa_3d = Viewport.MSAA_4X
 
 func cancel_modes() -> void:
 	build_type = ""
@@ -1316,30 +1479,38 @@ func layout_ui() -> void:
 	info_box.position = Vector2(vp.x - 300.0, 72.0)
 
 func _process(delta: float) -> void:
-	# Camara
-	var move := Vector3.ZERO
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		move.x -= 1
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		move.x += 1
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		move.z -= 1
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		move.z += 1
+	# Camara: desplazamiento por bordes de pantalla, zoom con rueda y arrastre con boton central
+	var vp_size := get_viewport().get_visible_rect().size
+	var mp0 := get_viewport().get_mouse_position()
+	var pan := Vector2.ZERO
+	if in_game and Rect2(Vector2.ZERO, vp_size).has_point(mp0):
+		if mp0.x < 8.0:
+			pan.x -= 1.0
+		elif mp0.x > vp_size.x - 8.0:
+			pan.x += 1.0
+		if mp0.y < 8.0:
+			pan.y -= 1.0
+		elif mp0.y > vp_size.y - 8.0:
+			pan.y += 1.0
 	if in_game:
-		cam_target += move.normalized() * 22.0 * delta * (cam_dist / 46.0)
+		cam_target += Vector3(pan.x, 0, pan.y) * 22.0 * delta * (cam_dist / 46.0)
+		cam_target.x = clampf(cam_target.x, -12.0, W * TDData.TILE + 12.0)
+		cam_target.z = clampf(cam_target.z, -12.0, H * TDData.TILE + 12.0)
 	else:
 		cam_orbit += delta * 0.08
+		cam_target = Vector3(W * TDData.TILE * 0.5, 0, H * TDData.TILE * 0.5)
+		cam_dist = 40.0
 	var pitch := deg_to_rad(54.0)
 	var yaw := cam_orbit if not in_game else 0.0
 	var off := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * cam_dist
-	if not in_game:
-		cam_target = Vector3(W * TDData.TILE * 0.5, 0, H * TDData.TILE * 0.5)
-		cam_dist = 40.0
 	cam.position = cam_target + off
 	cam.look_at(cam_target, Vector3.UP)
 
-	layout_ui()
+	fps_t -= delta
+	if fps_t <= 0.0:
+		fps_t = 0.5
+		lbl_fps.text = "%d FPS" % Engine.get_frames_per_second()
+
 	if msg_t > 0.0:
 		msg_t -= delta
 		lbl_msg.modulate.a = clampf(msg_t / 0.6, 0.0, 1.0)

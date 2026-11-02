@@ -15,20 +15,20 @@ Es la versión nueva del proyecto: se ejecuta directamente desde el editor de Go
 3. Pulsa **Importar y editar**. La primera vez Godot crea su caché; espera unos segundos.
 4. Pulsa **F5** (o el botón ▶ arriba a la derecha) para jugar.
 
-## 3. Controles
+## 3. Controles (solo ratón)
 
 | Acción | Control |
 |---|---|
-| Elegir torre | Botón inferior, o teclas **1–5** |
-| Colocar torre | Clic en una casilla verde (el círculo muestra el alcance) |
-| Seleccionar torre | Clic sobre ella → panel con **Mejorar** y **Vender** |
-| Cancelar modo / selección | **Clic derecho** o **Esc** |
-| Iniciar oleada | Botón **▶ Oleada** o **Espacio** |
-| Pausa | **Esc** (sin modo activo) o **P** |
-| Velocidad | Botón "Velocidad" (x1 / x2) |
-| Habilidades | Botones inferiores (Misiles y Radar piden un objetivo con clic) |
-| Mover cámara | **WASD** o **flechas** |
-| Zoom | **Rueda del ratón** |
+| Elegir torre | Pulsa una torre en la barra inferior, luego clic en una casilla verde |
+| Arrastrar torre | Mantén pulsada una torre en la barra inferior y suéltala sobre una casilla verde |
+| Seleccionar / mejorar / vender | Clic sobre una torre construida → panel con **Mejorar** y **Vender** |
+| Cancelar | **Clic derecho** (o Esc) |
+| Iniciar oleada | Botón **▶ Oleada** |
+| Habilidades | Botones de la barra inferior (Misiles y Radar piden un objetivo con clic) |
+| Pausa / Menú | Botones **Pausa** y **Menú** de la barra superior (Esc también pausa) |
+| Calidad gráfica | Botón **Gráficos** (Baja / Media / Alta); el contador **FPS** está arriba a la derecha |
+| Mover cámara | Arrastrar con el **botón central**, o acercar el ratón a los bordes de la pantalla |
+| Zoom | Rueda del ratón |
 
 ## 4. Contenido
 
