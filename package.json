@@ -1,0 +1,23 @@
+{
+  "name": "td-defense",
+  "productName": "TD Defense",
+  "version": "1.0.0",
+  "description": "TD Defense - Tower Defense futurista militar (Three.js)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "start": "vite build && node launcher/serve.cjs",
+    "exe": "node scripts/build-exe.mjs",
+    "exe:linux": "node scripts/build-exe.mjs --linux-only"
+  },
+  "author": "ZaBaDeVgit",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.160.1"
+  },
+  "devDependencies": {
+    "postject": "1.0.0-alpha.6",
+    "vite": "^5.4.21"
+  }
+}

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TD Defense - Tower Defense</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="fx"></div>
+  <div id="screenFlash"></div>
+
+  <!-- ============ MENU PRINCIPAL ============ -->
+  <section id="menu" class="screen active">
+    <div class="menuShade"></div>
+    <header class="titleBlock">
+      <div class="logoWrap">
+        <div class="wings"></div>
+        <div class="logo"><span class="logoTD">TD</span><span class="logoDef">DEFENSE</span></div>
+        <div class="logoSub"><span>★</span> TOWER DEFENSE <span>★</span></div>
+      </div>
+      <div class="tagline"><b>PLANIFICA</b><i>•</i><b>DEFIENDE</b><i>•</i><b>SOBREVIVE</b></div>
+    </header>
+    <div class="towerShowcase" id="towerShowcase"></div>
+    <nav class="menuButtons">
+      <button class="bigBtn primary" data-action="play">▶ JUGAR</button>
+      <button class="bigBtn" data-action="settings">⚙ AJUSTES</button>
+      <button class="bigBtn" data-action="help">? CÓMO JUGAR</button>
+      <button class="bigBtn" data-action="quit">✕ SALIR</button>
+    </nav>
+    <footer class="menuFoot">Coloca torres, detén las oleadas y protege tu base · Hecho con Three.js</footer>
+  </section>
+
+  <!-- ============ SELECCION DE ESCENARIO ============ -->
+  <section id="scenarioScreen" class="screen">
+    <div class="menuShade"></div>
+    <div class="panel scenarioPanel">
+      <div class="panelTitle">ESCENARIOS</div>
+      <div class="scenarioGrid" id="scenarioGrid"></div>
+      <div class="row end">
+        <button class="btn" data-action="back">← Volver</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HUD DE JUEGO ============ -->
+  <section id="hud" class="screen">
+    <div id="topBar" class="topBar">
+      <div class="chip red"><span class="ico">♥</span><b id="lives">100</b></div>
+      <div class="chip gold"><span class="ico">●</span><b id="gold">850</b></div>
+      <div class="chip blue"><span class="ico">⚑</span><b id="waveText">Oleada: 0/15</b></div>
+      <button class="iconBtn" id="btnStart" title="Iniciar oleada (Espacio)">▶ Oleada</button>
+      <button class="iconBtn" id="btnPauseTop" title="Pausa (P)">❚❚</button>
+      <button class="iconBtn" id="btnSpeed" title="Velocidad">1x</button>
+    </div>
+
+    <div class="minimapBox"><canvas id="minimap" width="240" height="160"></canvas></div>
+
+    <div class="leftCtl">
+      <button class="roundBtn" id="btnRanges" title="Mostrar rangos de las torres">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><path d="M12 2v5M12 17v5M2 12h5M17 12h5" /><circle cx="12" cy="12" r="1.8" fill="currentColor" /></svg>
+      </button>
+      <button class="roundBtn" id="btnSell" title="Modo vender (V)">
+        <svg viewBox="0 0 24 24"><text x="12" y="18" text-anchor="middle" font-size="18" font-weight="700" fill="currentColor" stroke="none">$</text></svg>
+      </button>
+      <button class="roundBtn" id="btnSettings2" title="Ajustes">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+      </button>
+    </div>
+
+    <div class="towerBar" id="towerBar"></div>
+
+    <aside class="rightPanel">
+      <div class="panel enemyPanel">
+        <div class="tab">ENEMIGOS</div>
+        <div class="enemyGrid" id="enemyGrid"></div>
+      </div>
+
+      <div class="row2">
+        <div class="panel upgradePanel">
+          <div class="tab">MEJORAS</div>
+          <div class="upBody">
+            <img id="upImg" alt="" />
+            <div class="upBars">
+              <div class="upBar"><span>Daño</span><i><b id="barPower"></b></i></div>
+              <div class="upBar"><span>Veloc.</span><i><b id="barRate"></b></i></div>
+              <div class="upBar"><span>Alcance</span><i><b id="barRange"></b></i></div>
+            </div>
+          </div>
+          <div class="upName" id="upName">Selecciona una torre</div>
+          <button class="btn green" id="btnUpgrade" disabled>MEJORAR</button>
+          <button class="btn small danger" id="btnSellSel" disabled>Vender</button>
+        </div>
+        <div class="panel scenPanel">
+          <div class="tab">ESCENARIOS</div>
+          <div class="miniScen" id="miniScen"></div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="panel pausePanel">
+          <div class="tab">PAUSA</div>
+          <button class="btn wide" id="btnResume"><span>▶</span> Reanudar</button>
+          <button class="btn wide" id="btnRestart"><span>⟳</span> Reiniciar</button>
+          <button class="btn wide" id="btnMenu"><span>⌂</span> Menú Principal</button>
+        </div>
+        <div class="panel skillPanel">
+          <div class="tab">HABILIDADES</div>
+          <div class="skills" id="skills"></div>
+          <div class="hint">Clic en una habilidad y luego en el mapa</div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="toast" class="toast"></div>
+    <div id="pauseTag" class="pauseTag">PAUSA</div>
+  </section>
+
+  <!-- ============ FIN DE PARTIDA ============ -->
+  <div id="endOverlay" class="overlay">
+    <div class="panel endPanel">
+      <div class="endTitle" id="endTitle">VICTORIA</div>
+      <div class="endStats" id="endStats"></div>
+      <div class="row center">
+        <button class="btn" id="btnRetry">↻ Reintentar</button>
+        <button class="btn" id="btnEndMenu">⌂ Menú</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AJUSTES ============ -->
+  <div id="settingsModal" class="overlay">
+    <div class="panel settingsPanel">
+      <div class="panelTitle">AJUSTES</div>
+      <label class="setRow"><span>Sonido</span><input type="checkbox" id="setSound" /></label>
+      <label class="setRow"><span>Calidad gráfica (sombras y brillo)</span><select id="setQuality"><option value="high">Alta</option><option value="low">Baja</option></select></label>
+      <label class="setRow"><span>Mostrar rangos de torres</span><input type="checkbox" id="setRanges" /></label>
+      <label class="setRow"><span>Pantalla completa</span><button class="btn small" id="setFull">Activar</button></label>
+      <div class="row end"><button class="btn" id="btnSettingsClose">Cerrar</button></div>
+    </div>
+  </div>
+
+  <!-- ============ COMO JUGAR ============ -->
+  <div id="helpModal" class="overlay">
+    <div class="panel settingsPanel helpPanel">
+      <div class="panelTitle">CÓMO JUGAR</div>
+      <ul>
+        <li>Elige un escenario y pulsa <b>▶ Oleada</b> (o <b>Espacio</b>) para lanzar la siguiente oleada.</li>
+        <li>Haz clic en una torre de la barra inferior y luego en una casilla verde del mapa para construirla.</li>
+        <li>Haz clic en una torre construida para ver sus estadísticas, mejorarla o venderla.</li>
+        <li>Los enemigos siguen la carretera hasta tu base. Cada enemigo que llega te quita vida.</li>
+        <li>Usa las habilidades (misiles, radar, nuclear, escudo y botiquín) en los momentos críticos.</li>
+        <li>Controles: clic izquierdo = construir/seleccionar · clic derecho + arrastrar = rotar · rueda = zoom · flechas = mover cámara · <b>P</b> pausa · <b>1-5</b> torres · <b>V</b> vender · <b>Esc</b> cancelar.</li>
+      </ul>
+      <div class="row end"><button class="btn" id="btnHelpClose">Entendido</button></div>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">Cargando modelos 3D…</div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
