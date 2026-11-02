@@ -1,0 +1,308 @@
+# Modelos 3D procedurales (primitivas de Godot). Todos miran hacia -Z.
+class_name TDModels
+extends RefCounted
+
+static var _mats: Dictionary = {}
+
+static func mat(key: String) -> StandardMaterial3D:
+	if _mats.has(key):
+		return _mats[key]
+	var m := StandardMaterial3D.new()
+	m.roughness = 0.7
+	var col := Color.WHITE
+	match key:
+		"olive": col = Color("#5b6b3a")
+		"camo": col = Color("#4e5a33")
+		"tan": col = Color("#b49a6a")
+		"steel":
+			col = Color("#8a9199"); m.metallic = 0.8; m.roughness = 0.3
+		"dark":
+			col = Color("#2a2e35"); m.metallic = 0.5; m.roughness = 0.5
+		"rubber": col = Color("#1d1d1f"); m.roughness = 0.95
+		"concrete": col = Color("#9a9a94")
+		"white": col = Color("#e8ecef")
+		"red": col = Color("#b83a30")
+		"wood": col = Color("#6b4a2b")
+		"leaf": col = Color("#2f6b2a")
+		"leaf2": col = Color("#3d7d34")
+		"cactus": col = Color("#4f7a3a")
+		"rock": col = Color("#7a736a")
+		"sand": col = Color("#d7b67e")
+		"snow": col = Color("#eef3f7")
+		"skin": col = Color("#d8b08c")
+		"building": col = Color("#3a4256"); m.metallic = 0.3
+		"glass": col = Color("#2c4a66"); m.metallic = 0.6; m.roughness = 0.15
+		"carred": col = Color("#9c2a24"); m.metallic = 0.4
+		"carblue": col = Color("#2b4f8a"); m.metallic = 0.4
+		"orange", "cyan", "green", "yellow", "lampglow":
+			col = {"orange": Color("#ff8a1a"), "cyan": Color("#44c8ff"), "green": Color("#7dff7a"),
+				"yellow": Color("#ffd166"), "lampglow": Color("#fff2b0")}[key]
+			m.emission_enabled = true
+			m.emission = col
+			m.emission_energy_multiplier = 2.0
+		"glass_clear":
+			col = Color(0.6, 0.85, 1.0, 0.35)
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_:
+			if key.begins_with("#"):
+				col = Color(key)
+	m.albedo_color = col
+	_mats[key] = m
+	return m
+
+static func glow(hex: String, energy: float = 2.0) -> StandardMaterial3D:
+	var key := "glow:" + hex + ":" + str(energy)
+	if _mats.has(key):
+		return _mats[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(hex)
+	m.emission_enabled = true
+	m.emission = Color(hex)
+	m.emission_energy_multiplier = energy
+	_mats[key] = m
+	return m
+
+static func box(parent: Node3D, size: Vector3, m: Material, pos: Vector3 = Vector3.ZERO, rot: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = m
+	mi.position = pos
+	mi.rotation = rot
+	parent.add_child(mi)
+	return mi
+
+static func cyl(parent: Node3D, r_top: float, r_bot: float, h: float, m: Material, pos: Vector3 = Vector3.ZERO, rot: Vector3 = Vector3.ZERO, seg: int = 14) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r_top
+	cm.bottom_radius = r_bot
+	cm.height = h
+	cm.radial_segments = seg
+	mi.mesh = cm
+	mi.material_override = m
+	mi.position = pos
+	mi.rotation = rot
+	parent.add_child(mi)
+	return mi
+
+static func sph(parent: Node3D, r: float, m: Material, pos: Vector3 = Vector3.ZERO, sc: Vector3 = Vector3.ONE) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = r
+	sm.height = r * 2.0
+	sm.radial_segments = 16
+	sm.rings = 8
+	mi.mesh = sm
+	mi.material_override = m
+	mi.position = pos
+	mi.scale = sc
+	parent.add_child(mi)
+	return mi
+
+static func torus(parent: Node3D, inner: float, outer: float, m: Material, pos: Vector3 = Vector3.ZERO, rot: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = inner
+	tm.outer_radius = outer
+	mi.mesh = tm
+	mi.material_override = m
+	mi.position = pos
+	mi.rotation = rot
+	parent.add_child(mi)
+	return mi
+
+static func pivot(parent: Node3D, pos: Vector3 = Vector3.ZERO, rot: Vector3 = Vector3.ZERO) -> Node3D:
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation = rot
+	parent.add_child(n)
+	return n
+
+# ---------------- Torres ----------------
+static func build_tower(type: String, level: int) -> Node3D:
+	var root := Node3D.new()
+	box(root, Vector3(2.4, 0.45, 2.4), mat("dark"), Vector3(0, 0.22, 0))
+	cyl(root, 1.3, 1.45, 0.45, mat("dark"), Vector3(0, 0.22, 0), Vector3.ZERO, 8)
+	torus(root, 1.18, 1.28, glow("#ff8a1a", 1.5), Vector3(0, 0.47, 0), Vector3(PI / 2, 0, 0))
+	for i in range(level):
+		var a := -PI / 2 + float(i) * (PI * 2.0 / 3.0)
+		sph(root, 0.1, glow("#ffd166", 3.0), Vector3(cos(a) * 1.0, 0.55, sin(a) * 1.0))
+	var turret := pivot(root, Vector3(0, 0.6, 0))
+	root.set_meta("turret", turret)
+	match type:
+		"mg":
+			box(turret, Vector3(0.9, 0.5, 0.9), mat("olive"), Vector3(0, 0.25, 0))
+			box(turret, Vector3(0.5, 0.35, 0.5), mat("camo"), Vector3(0, 0.6, 0.1))
+			for sx in [-0.25, 0.25]:
+				cyl(turret, 0.07, 0.07, 1.7, mat("steel"), Vector3(sx, 0.6, -0.85), Vector3(PI / 2, 0, 0))
+			box(turret, Vector3(0.4, 0.4, 0.4), mat("rubber"), Vector3(0.6, 0.3, 0.2))
+		"missile":
+			box(turret, Vector3(1.3, 0.5, 1.3), mat("olive"), Vector3(0, 0.25, 0))
+			for sx in [-0.3, 0.3]:
+				for sy in [0.55, 0.9]:
+					cyl(turret, 0.2, 0.2, 1.3, mat("camo"), Vector3(sx, sy, -0.4), Vector3(PI / 2, 0, 0), 12)
+					sph(turret, 0.2, glow("#ff6b4a", 1.0), Vector3(sx, sy, -1.05), Vector3(1, 1, 0.6))
+		"laser":
+			sph(turret, 0.62, mat("dark"), Vector3(0, 0.45, 0), Vector3(1, 0.8, 1))
+			cyl(turret, 0.12, 0.12, 1.8, glow("#44c8ff", 2.5), Vector3(0, 0.5, -1.0), Vector3(PI / 2, 0, 0), 10)
+			sph(turret, 0.25, glow("#44c8ff", 3.5), Vector3(0, 0.55, -0.2))
+		"aa":
+			box(turret, Vector3(1.1, 0.5, 1.1), mat("tan"), Vector3(0, 0.25, 0))
+			for sx in [-0.3, 0.3]:
+				cyl(turret, 0.1, 0.1, 2.0, mat("steel"), Vector3(sx, 0.7, -0.9), Vector3(PI / 2, 0, 0), 10)
+		"tesla":
+			cyl(root, 0.18, 0.25, 2.2, mat("steel"), Vector3(0, 1.6, 0))
+			turret.position = Vector3(0, 2.8, 0)
+			sph(turret, 0.45, glow("#7fe9ff", 3.0), Vector3(0, 0, 0))
+			torus(turret, 0.5, 0.6, glow("#7fe9ff", 1.5), Vector3(0, 0, 0), Vector3(PI / 2, 0, 0))
+	return root
+
+# ---------------- Enemigos ----------------
+static func build_enemy(type: String) -> Node3D:
+	var root := Node3D.new()
+	var body := pivot(root)
+	root.set_meta("body", body)
+	var legs: Array = []
+	var rotors: Array = []
+	match type:
+		"soldier", "shield":
+			for sx in [-0.15, 0.15]:
+				legs.append(pivot(body, Vector3(sx, 0.7, 0)))
+				box(legs[-1], Vector3(0.22, 0.7, 0.25), mat("olive"), Vector3(0, -0.35, 0))
+			box(body, Vector3(0.5, 0.6, 0.3), mat("camo"), Vector3(0, 1.05, 0))
+			sph(body, 0.22, mat("skin"), Vector3(0, 1.6, 0))
+			sph(body, 0.25, mat("camo"), Vector3(0, 1.68, 0), Vector3(1, 0.6, 1))
+			box(body, Vector3(0.12, 0.12, 0.7), mat("dark"), Vector3(0.3, 1.1, -0.35))
+			if type == "shield":
+				box(body, Vector3(0.7, 1.0, 0.1), mat("steel"), Vector3(0, 1.0, -0.35))
+		"spider":
+			sph(body, 0.5, mat("steel"), Vector3(0, 0.7, 0), Vector3(1, 0.7, 1.2))
+			sph(body, 0.25, mat("dark"), Vector3(0, 0.8, -0.55))
+			sph(body, 0.07, glow("#ff3b30", 3.0), Vector3(-0.1, 0.85, -0.78))
+			sph(body, 0.07, glow("#ff3b30", 3.0), Vector3(0.1, 0.85, -0.78))
+			for i in range(8):
+				var side := -1.0 if i < 4 else 1.0
+				var k := i % 4
+				var ang := (k - 1.5) * 0.45
+				var leg := pivot(body, Vector3(side * 0.35, 0.7, -0.2 + k * 0.18), Vector3(0, -side * 0.0, 0))
+				legs.append(leg)
+				cyl(leg, 0.04, 0.04, 1.3, mat("dark"), Vector3(side * 0.6, -0.35, 0), Vector3(0, 0, side * 0.9 + ang * 0.3))
+		"jeep":
+			box(body, Vector3(1.6, 0.5, 2.0), mat("olive"), Vector3(0, 0.55, 0))
+			box(body, Vector3(1.3, 0.5, 1.0), mat("camo"), Vector3(0, 1.0, 0.2))
+			cyl(body, 0.07, 0.07, 1.2, mat("steel"), Vector3(0, 1.1, -0.8), Vector3(PI / 2, 0, 0))
+			for p in [Vector3(-0.85, 0.3, -0.7), Vector3(0.85, 0.3, -0.7), Vector3(-0.85, 0.3, 0.7), Vector3(0.85, 0.3, 0.7)]:
+				cyl(body, 0.32, 0.32, 0.25, mat("rubber"), p, Vector3(0, 0, PI / 2), 14)
+		"tank":
+			box(body, Vector3(2.2, 0.6, 3.0), mat("camo"), Vector3(0, 0.6, 0))
+			for sx in [-1.2, 1.2]:
+				box(body, Vector3(0.45, 0.7, 3.1), mat("dark"), Vector3(sx, 0.4, 0))
+			cyl(body, 0.8, 0.9, 0.5, mat("camo"), Vector3(0, 1.1, 0.1))
+			cyl(body, 0.12, 0.12, 2.0, mat("steel"), Vector3(0, 1.2, -1.2), Vector3(PI / 2, 0, 0))
+		"truck":
+			box(body, Vector3(2.0, 1.3, 2.6), mat("olive"), Vector3(0, 1.0, 0.3))
+			box(body, Vector3(1.9, 0.9, 1.0), mat("camo"), Vector3(0, 1.1, -1.3))
+			box(body, Vector3(1.8, 0.15, 0.4), glow("#ffd166", 1.0), Vector3(0, 1.2, -1.85))
+			for z in [-1.0, 0.2, 1.4]:
+				for sx in [-1.0, 1.0]:
+					cyl(body, 0.36, 0.36, 0.3, mat("rubber"), Vector3(sx, 0.36, z), Vector3(0, 0, PI / 2), 14)
+		"drone":
+			sph(body, 0.35, mat("dark"), Vector3(0, 3.6 - 3.6, 0), Vector3(1, 0.6, 1))
+			sph(body, 0.12, glow("#ff3b30", 3.0), Vector3(0, -0.05, -0.3))
+			for p in [Vector3(-0.5, 0, -0.5), Vector3(0.5, 0, -0.5), Vector3(-0.5, 0, 0.5), Vector3(0.5, 0, 0.5)]:
+				box(body, Vector3(0.08, 0.05, 0.08), mat("steel"), p * 0.6)
+				var rt := pivot(body, p)
+				rotors.append(rt)
+				cyl(rt, 0.4, 0.4, 0.03, glow("#ffffff", 0.2), Vector3(0, 0.1, 0), Vector3.ZERO, 12)
+		"heli":
+			sph(body, 0.8, mat("olive"), Vector3(0, 0.3, 0), Vector3(1, 0.9, 1.8))
+			box(body, Vector3(0.2, 0.2, 2.2), mat("olive"), Vector3(0, 0.5, 2.0))
+			box(body, Vector3(0.1, 0.5, 0.4), mat("olive"), Vector3(0.0, 0.8, 3.0))
+			box(body, Vector3(1.8, 0.08, 0.08), mat("dark"), Vector3(-0.6, -0.4, 0.1))
+			box(body, Vector3(1.8, 0.08, 0.08), mat("dark"), Vector3(0.6, -0.4, 0.1))
+			box(body, Vector3(0.1, 0.4, 0.1), mat("dark"), Vector3(-0.6, -0.15, 0.1))
+			box(body, Vector3(0.1, 0.4, 0.1), mat("dark"), Vector3(0.6, -0.15, 0.1))
+			var rotor := pivot(body, Vector3(0, 1.0, 0))
+			rotors.append(rotor)
+			box(rotor, Vector3(6.0, 0.04, 0.3), mat("dark"), Vector3.ZERO)
+			box(rotor, Vector3(0.3, 0.04, 6.0), mat("dark"), Vector3.ZERO)
+	root.set_meta("legs", legs)
+	root.set_meta("rotors", rotors)
+	return root
+
+# ---------------- Decoracion ----------------
+static func build_prop(kind: String, rng: RandomNumberGenerator) -> Node3D:
+	var root := Node3D.new()
+	var s := rng.randf_range(0.8, 1.25)
+	match kind:
+		"pine":
+			cyl(root, 0.12, 0.14, 0.9, mat("wood"), Vector3(0, 0.45, 0))
+			cyl(root, 0.0, 0.7, 1.6, mat("leaf"), Vector3(0, 1.5, 0), Vector3.ZERO, 8)
+			cyl(root, 0.0, 0.5, 1.1, mat("leaf2"), Vector3(0, 2.1, 0), Vector3.ZERO, 8)
+		"broadleaf":
+			cyl(root, 0.1, 0.14, 1.1, mat("wood"), Vector3(0, 0.55, 0))
+			sph(root, 0.8, mat("leaf2"), Vector3(0, 1.7, 0), Vector3(1, 0.85, 1))
+			sph(root, 0.55, mat("leaf"), Vector3(0.3, 2.2, 0.1))
+		"rock":
+			sph(root, 0.6, mat("rock"), Vector3(0, 0.25, 0), Vector3(1.2, 0.7, 1.0))
+		"snowrock":
+			sph(root, 0.7, mat("rock"), Vector3(0, 0.3, 0), Vector3(1.2, 0.9, 1.0))
+			sph(root, 0.45, mat("snow"), Vector3(0, 0.9, 0), Vector3(1.2, 0.5, 1.0))
+		"watch":
+			cyl(root, 0.4, 0.5, 2.8, mat("concrete"), Vector3(0, 1.4, 0))
+			box(root, Vector3(1.4, 0.7, 1.4), mat("olive"), Vector3(0, 3.0, 0))
+			box(root, Vector3(1.5, 0.12, 1.5), mat("dark"), Vector3(0, 3.4, 0))
+		"barracks":
+			box(root, Vector3(1.8, 0.9, 2.4), mat("tan"), Vector3(0, 0.45, 0))
+			box(root, Vector3(2.0, 0.15, 2.6), mat("camo"), Vector3(0, 1.0, 0), Vector3(0.12, 0, 0))
+		"cactus":
+			cyl(root, 0.18, 0.2, 1.4, mat("cactus"), Vector3(0, 0.7, 0), Vector3.ZERO, 10)
+			cyl(root, 0.12, 0.12, 0.6, mat("cactus"), Vector3(0.3, 0.9, 0), Vector3(0, 0, -PI / 2.5), 10)
+		"dune":
+			sph(root, 1.3, mat("sand"), Vector3(0, -0.2, 0), Vector3(1.4, 0.3, 1.0))
+		"palm":
+			cyl(root, 0.08, 0.12, 2.2, mat("wood"), Vector3(0, 1.1, 0), Vector3(0.1, 0, 0.1), 8)
+			for i in range(5):
+				var a := float(i) * TAU / 5.0
+				box(root, Vector3(0.2, 0.05, 1.3), mat("leaf"), Vector3(sin(a) * 0.6, 2.3, cos(a) * 0.6), Vector3(0.35, a, 0))
+		"skyscraper":
+			var h := rng.randf_range(3.0, 6.5)
+			box(root, Vector3(1.4, h, 1.4), mat("building"), Vector3(0, h / 2.0, 0))
+			box(root, Vector3(1.0, 0.2, 1.0), glow("#44c8ff", 0.6), Vector3(0, h + 0.1, 0))
+		"lamp":
+			cyl(root, 0.05, 0.07, 2.4, mat("dark"), Vector3(0, 1.2, 0), Vector3.ZERO, 6)
+			sph(root, 0.2, mat("lampglow"), Vector3(0, 2.5, 0))
+		"car":
+			var col := "#9c2a24" if rng.randf() < 0.5 else "#2b4f8a"
+			box(root, Vector3(0.9, 0.45, 1.6), mat(col), Vector3(0, 0.35, 0))
+			box(root, Vector3(0.75, 0.4, 0.8), mat("glass"), Vector3(0, 0.75, -0.1))
+			root.rotation.y = rng.randf() * TAU
+	root.scale = Vector3(s, s, s)
+	return root
+
+# ---------------- Base y marcadores ----------------
+static func build_hq() -> Node3D:
+	var root := Node3D.new()
+	cyl(root, 2.3, 2.4, 0.4, mat("concrete"), Vector3(0, 0.2, 0), Vector3.ZERO, 8)
+	box(root, Vector3(2.4, 1.6, 2.4), mat("olive"), Vector3(0, 1.2, 0))
+	box(root, Vector3(2.6, 0.2, 2.6), mat("dark"), Vector3(0, 2.1, 0))
+	var core := cyl(root, 0.9, 0.9, 0.25, glow("#ff8a1a", 2.2), Vector3(0, 2.3, 0), Vector3.ZERO, 16)
+	root.set_meta("core", core)
+	torus(root, 2.6, 2.75, glow("#44c8ff", 1.5), Vector3(0, 0.45, 0), Vector3(PI / 2, 0, 0))
+	cyl(root, 0.05, 0.05, 2.2, mat("steel"), Vector3(1.4, 3.2, 1.4))
+	sph(root, 0.45, mat("white"), Vector3(1.4, 4.4, 1.4), Vector3(1, 0.4, 1))
+	return root
+
+static func build_spawn() -> Node3D:
+	var root := Node3D.new()
+	cyl(root, 1.2, 1.3, 0.2, mat("concrete"), Vector3(0, 0.1, 0), Vector3.ZERO, 8)
+	torus(root, 0.9, 1.05, glow("#7dff7a", 2.0), Vector3(0, 0.25, 0), Vector3(PI / 2, 0, 0))
+	return root
+
+static func build_missile() -> Node3D:
+	var root := Node3D.new()
+	cyl(root, 0.1, 0.1, 0.7, mat("white"), Vector3(0, 0, 0), Vector3(PI / 2, 0, 0), 8)
+	sph(root, 0.12, glow("#ff8a1a", 3.0), Vector3(0, 0, -0.36))
+	return root
