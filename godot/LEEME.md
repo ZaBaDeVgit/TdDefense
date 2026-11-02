@@ -40,6 +40,9 @@ Es la versión nueva del proyecto: se ejecuta directamente desde el editor de Go
 - Suelo de fuego: las losetas del camino son solo visuales.
 - Modelos: godot/assets/models (GLB optimizados, ver CREDITOS_MODELOS.txt).
 
+## Creditos
+- Modelos, texturas y efectos 3D: **ZaBaDeV** (https://github.com/ZaBaDeVgit), licencia libre. Detalle en `assets/models/CREDITOS_MODELOS.txt`.
+
 Los datos de torres, enemigos, oleadas y mapas se han portado desde la versión web (`src/`), así que el equilibrio es el mismo.
 
 ## 5. Estructura
