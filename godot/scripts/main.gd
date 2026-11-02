@@ -146,8 +146,10 @@ func mk_button(text: String, cb: Callable, min_size: Vector2 = Vector2(150, 42),
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", font)
 	b.add_theme_color_override("font_color", COL_TEXT)
-	b.add_theme_stylebox_override("normal", sbox(Color(0.05, 0.1, 0.18, 0.88), Color(0.2, 0.7, 1.0, 0.6)))
-	b.add_theme_stylebox_override("hover", sbox(Color(0.1, 0.22, 0.34, 0.95), COL_ACCENT))
+	b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	b.add_theme_constant_override("outline_size", 5)
+	b.add_theme_stylebox_override("normal", sbox(Color(0.03, 0.06, 0.12, 0.96), Color(0.2, 0.7, 1.0, 0.85), 10, 3))
+	b.add_theme_stylebox_override("hover", sbox(Color(0.08, 0.2, 0.32, 1.0), COL_ACCENT, 10, 3))
 	b.add_theme_stylebox_override("pressed", sbox(Color(0.02, 0.16, 0.26, 0.95), COL_ACCENT))
 	b.add_theme_stylebox_override("disabled", sbox(Color(0.08, 0.08, 0.1, 0.7), Color(0.3, 0.3, 0.35, 0.5)))
 	b.pressed.connect(cb)
@@ -241,17 +243,19 @@ func build_hud() -> void:
 	for i in range(TDData.TOWER_ORDER.size()):
 		var key: String = TDData.TOWER_ORDER[i]
 		var t: Dictionary = TDData.TOWERS[key]
-		var b := mk_button("%s\n$%d" % [t["name"], t["cost"]], on_build.bind(key), Vector2(150, 58), 14)
+		var b := mk_button("%s\n$%d" % [t["name"], t["cost"]], on_build.bind(key), Vector2(150, 62), 15)
+		var tcol := Color(String(t["color"]))
+		b.add_theme_stylebox_override("normal", sbox(Color(0.03, 0.06, 0.12, 0.96), tcol, 10, 3))
 		tower_btns[key] = b
 		b.gui_input.connect(on_tower_gui.bind(key))
 		bh.add_child(b)
 	var sep := VSeparator.new()
 	bh.add_child(sep)
-	skill_btns["misil"] = mk_button("Rayo", on_skill.bind("misil"), Vector2(112, 58), 14)
-	skill_btns["radar"] = mk_button("Radar", on_skill.bind("radar"), Vector2(112, 58), 14)
-	skill_btns["nuke"] = mk_button("Bomba", on_skill.bind("nuke"), Vector2(112, 58), 14)
-	skill_btns["shield"] = mk_button("Escudo", on_skill.bind("shield"), Vector2(112, 58), 14)
-	skill_btns["heal"] = mk_button("Botiquín", on_skill.bind("heal"), Vector2(112, 58), 14)
+	skill_btns["misil"] = mk_button("Rayo", on_skill.bind("misil"), Vector2(112, 62), 15)
+	skill_btns["radar"] = mk_button("Radar", on_skill.bind("radar"), Vector2(112, 62), 15)
+	skill_btns["nuke"] = mk_button("Bomba", on_skill.bind("nuke"), Vector2(112, 62), 15)
+	skill_btns["shield"] = mk_button("Escudo", on_skill.bind("shield"), Vector2(112, 62), 15)
+	skill_btns["heal"] = mk_button("Botiquín", on_skill.bind("heal"), Vector2(112, 62), 15)
 	for k in ["misil", "radar", "nuke", "shield", "heal"]:
 		bh.add_child(skill_btns[k])
 	bh.add_child(VSeparator.new())
@@ -628,31 +632,31 @@ func setup_environment(sc: Dictionary) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky_res
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.0
+	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.05
+	env.tonemap_exposure = 0.9
 	env.glow_enabled = true
-	env.glow_intensity = 0.6
-	env.glow_bloom = 0.05
-	env.glow_hdr_threshold = 1.0
+	env.glow_intensity = 0.2
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.4
 	env.fog_enabled = true
-	env.fog_light_color = Color(sc["sky_bottom"])
-	env.fog_density = 0.006
+	env.fog_light_color = Color(sc["sky_bottom"]).darkened(0.25)
+	env.fog_density = 0.0035
 	env.ssao_enabled = true
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.32
-	env.adjustment_contrast = 1.12
-	env.adjustment_brightness = 1.03
+	env.adjustment_saturation = 1.25
+	env.adjustment_contrast = 1.18
+	env.adjustment_brightness = 0.95
 	env_node.environment = env
 	apply_quality()
 	var night: bool = sc["id"] == "ciudad"
-	sun.light_energy = 1.0 if night else 2.2
+	sun.light_energy = 0.9 if night else 1.35
 	sun.light_color = Color("#9fb4ff") if night else Color("#ffe2b0")
 	sun.rotation_degrees = Vector3(-50, 35, 0) if night else Vector3(-58, 30, 0)
 
 func build_terrain(sc: Dictionary) -> void:
 	var base_col := Color(sc["ground"])
-	var variants := [base_col, base_col.darkened(0.08), base_col.lightened(0.07)]
+	var variants := [base_col.darkened(0.12), base_col.darkened(0.2), base_col]
 	var road_mat := make_mat(sc["road"])
 	var water_mat := StandardMaterial3D.new()
 	water_mat.albedo_color = Color(sc["water"])
@@ -1200,6 +1204,7 @@ func place_tower(key: String, cell: Vector2i) -> void:
 	var pos := cell_pos(cell.x, cell.y)
 	var root := TDModels.build_tower(key, 1)
 	root.position = pos
+	var shadow_disc := TDModels.cyl(root, 1.6, 1.6, 0.02, make_mat("#05080d"), Vector3(0, 0.02, 0), Vector3.ZERO, 24)
 	root.scale = Vector3.ONE * 0.1
 	world.add_child(root)
 	var tw := root.create_tween()
