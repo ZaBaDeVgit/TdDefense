@@ -245,18 +245,18 @@ func build_hud() -> void:
 	bottom_panel = panel()
 	var bottom := bottom_panel
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -118
-	bottom.offset_bottom = -12
+	bottom.offset_top = -140
+	bottom.offset_bottom = -14
 	bottom.offset_left = 12
 	bottom.offset_right = -12
 	hud_root.add_child(bottom)
 	var bh := HBoxContainer.new()
-	bh.add_theme_constant_override("separation", 10)
+	bh.add_theme_constant_override("separation", 8)
 	bottom.add_child(bh)
 	for i in range(TDData.TOWER_ORDER.size()):
 		var key: String = TDData.TOWER_ORDER[i]
 		var t: Dictionary = TDData.TOWERS[key]
-		var b := mk_button("%s\n$%d" % [t["name"], t["cost"]], on_build.bind(key), Vector2(150, 62), 15)
+		var b := mk_button("%s\n$%d" % [t["name"], t["cost"]], on_build.bind(key), Vector2(140, 62), 15)
 		var tcol := Color(String(t["color"]))
 		b.add_theme_stylebox_override("normal", sbox(Color(0.03, 0.06, 0.12, 0.96), tcol, 10, 3))
 		tower_btns[key] = b
@@ -264,15 +264,15 @@ func build_hud() -> void:
 		bh.add_child(b)
 	var sep := VSeparator.new()
 	bh.add_child(sep)
-	skill_btns["misil"] = mk_button("Rayo", on_skill.bind("misil"), Vector2(112, 62), 15)
-	skill_btns["radar"] = mk_button("Radar", on_skill.bind("radar"), Vector2(112, 62), 15)
-	skill_btns["nuke"] = mk_button("Bomba", on_skill.bind("nuke"), Vector2(112, 62), 15)
-	skill_btns["shield"] = mk_button("Escudo", on_skill.bind("shield"), Vector2(112, 62), 15)
-	skill_btns["heal"] = mk_button("Botiquín", on_skill.bind("heal"), Vector2(112, 62), 15)
+	skill_btns["misil"] = mk_button("Rayo", on_skill.bind("misil"), Vector2(105, 62), 15)
+	skill_btns["radar"] = mk_button("Radar", on_skill.bind("radar"), Vector2(105, 62), 15)
+	skill_btns["nuke"] = mk_button("Bomba", on_skill.bind("nuke"), Vector2(105, 62), 15)
+	skill_btns["shield"] = mk_button("Escudo", on_skill.bind("shield"), Vector2(105, 62), 15)
+	skill_btns["heal"] = mk_button("Botiquín", on_skill.bind("heal"), Vector2(105, 62), 15)
 	for k in ["misil", "radar", "nuke", "shield", "heal"]:
 		bh.add_child(skill_btns[k])
 	bh.add_child(VSeparator.new())
-	btn_wave = mk_button("▶ Oleada 1", on_start_wave, Vector2(170, 58), 18)
+	btn_wave = mk_button("▶ Oleada 1", on_start_wave, Vector2(160, 58), 18)
 	bh.add_child(btn_wave)
 
 func make_screen() -> Control:

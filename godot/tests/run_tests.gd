@@ -23,6 +23,7 @@ func run_tests() -> void:
 	root.add_child(game)
 	await process_frame
 	check(not game.in_game and game.menu_root.visible, "El menú aparece al iniciar")
+	var sky: Sky = game.env_node.environment.sky
 
 	# Se comprueba que el proyecto utilice los GLB, no el respaldo procedural.
 	for key in TDModels.GLB_TOWERS:
@@ -52,6 +53,7 @@ func run_tests() -> void:
 		game.on_play(i)
 		await process_frame
 		var label: String = TDData.SCENARIOS[i]["name"]
+		check(game.env_node.environment.sky == sky, label + ": se reutiliza el cielo al cambiar de escenario")
 		check(game.in_game and game.path_pts.size() > 1, label + ": ruta válida")
 		check(game.enemy_pos_on_path(0.0).distance_to(game.spawn_pos) < 0.01, label + ": entrada")
 		check(game.enemy_pos_on_path(game.path_total).distance_to(game.base_pos) < 0.01, label + ": destino")
@@ -82,6 +84,9 @@ func run_tests() -> void:
 	game.on_play(0)
 	await process_frame
 	check(game.gold == TDData.START_GOLD and game.lives == TDData.START_LIVES, "Economía y vida iniciales")
+	var viewport_rect := root.get_visible_rect()
+	check(viewport_rect.encloses(game.bottom_panel.get_global_rect()), "La barra inferior cabe en la pantalla")
+	check(viewport_rect.encloses(game.btn_wave.get_global_rect()), "El botón de oleada no queda recortado")
 	check(game.sun.shadow_enabled, "Las sombras están activas en calidad alta")
 	game.quality = 0
 	game.apply_quality()

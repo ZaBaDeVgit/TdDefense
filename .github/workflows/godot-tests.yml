@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Instalar Godot 4.3
         run: |
           curl -fLsS -o /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
@@ -50,19 +50,7 @@ jobs:
             sudo apt-get install -y -qq xvfb
           fi
           set +e
-          export LIBGL_ALWAYS_SOFTWARE=1 TD_VISUAL_IMAGE=/tmp/tddefense-visual.jpg
-          cat > godot/tests/_render_baseline.gd <<'EOF'
-          extends SceneTree
-          func _initialize() -> void:
-              call_deferred("run")
-          func run() -> void:
-              for i in range(10):
-                  await process_frame
-              quit(0)
-          EOF
-          timeout 30 xvfb-run -a -s '-screen 0 1600x900x24' /tmp/godot/Godot_v4.3-stable_linux.x86_64 --audio-driver Dummy --rendering-method gl_compatibility --path godot --script res://tests/_render_baseline.gd > /tmp/baseline.log 2>&1
-          baseline=$(grep -E '^(ERROR|SCRIPT ERROR):' /tmp/baseline.log | head -10 | tr '\n' '|')
-          echo "::notice::BASELINE: ${baseline:-sin errores}"
+          export LIBGL_ALWAYS_SOFTWARE=1
           timeout 180 xvfb-run -a -s '-screen 0 1600x900x24' /tmp/godot/Godot_v4.3-stable_linux.x86_64 --audio-driver Dummy --rendering-method gl_compatibility --resolution 1600x900 --path godot --script res://tests/visual_smoke.gd 2>&1 | tee /tmp/visual.log
           result=${PIPESTATUS[0]}
           if grep -Eq '^(SCRIPT ERROR|ERROR|FALLO):' /tmp/visual.log; then result=1; fi
@@ -74,8 +62,5 @@ jobs:
             log="${log//$'\n'/'%0A'}"
             log="${log//$'\r'/'%0D'}"
             echo "::error::$log"
-          fi
-          if [ -s /tmp/tddefense-visual.jpg ]; then
-            base64 -w0 /tmp/tddefense-visual.jpg | fold -w3000 | awk '{printf "::notice::TDIMG%03d:%s\n", NR, $0}'
           fi
           exit "$result"

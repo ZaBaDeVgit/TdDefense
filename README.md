@@ -41,7 +41,7 @@ godot --headless --path godot --import
 godot --headless --path godot --script res://tests/run_tests.gd
 ```
 
-Las pruebas comprueban los modelos importados, rutas, construcción, mejoras, combate, habilidades y flujo de partida. El modo sin ventana no verifica la apariencia visual.
+Las pruebas comprueban los modelos importados, rutas, construcción, mejoras, combate, habilidades y flujo de partida. Además, la integración continua comprueba que se renderice una imagen con OpenGL por software. Ninguna sustituye una revisión visual en Forward+ con una GPU compatible.
 
 ## Créditos
 
