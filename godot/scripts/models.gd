@@ -112,7 +112,7 @@ static func mat(key: String) -> StandardMaterial3D:
 
 # Texturas procedurales (ruido de Godot), creadas una sola vez
 static var _soft_noise: NoiseTexture2D = null
-static var _camo_noise: NoiseTexture2D = null
+static var _camo_noise: ImageTexture = null
 
 static func soft_noise() -> Texture2D:
 	if _soft_noise == null:
@@ -133,19 +133,19 @@ static func soft_noise() -> Texture2D:
 
 static func camo_noise() -> Texture2D:
 	if _camo_noise == null:
-		var fn := FastNoiseLite.new()
-		fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-		fn.frequency = 0.035
-		fn.fractal_octaves = 4
-		var g := Gradient.new()
-		g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
-		g.colors = PackedColorArray([Color(0.5, 0.5, 0.5), Color(0.85, 0.85, 0.85), Color(1, 1, 1)])
-		_camo_noise = NoiseTexture2D.new()
-		_camo_noise.noise = fn
-		_camo_noise.color_ramp = g
-		_camo_noise.width = 256
-		_camo_noise.height = 256
-		_camo_noise.seamless = true
+		# Generación síncrona: evita mantener tareas de NoiseTexture2D vivas
+		# cuando se cierra el juego y se destruye el renderizador.
+		var noise := FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		noise.frequency = 0.035
+		noise.fractal_octaves = 4
+		var image := Image.create(128, 128, false, Image.FORMAT_RGBA8)
+		for y in range(128):
+			for x in range(128):
+				var value := clampf(noise.get_noise_2d(x, y) * 0.5 + 0.5, 0.0, 1.0)
+				var shade := lerpf(0.5, 1.0, value)
+				image.set_pixel(x, y, Color(shade, shade, shade))
+		_camo_noise = ImageTexture.create_from_image(image)
 	return _camo_noise
 
 static func ground_mat(col: Color) -> StandardMaterial3D:

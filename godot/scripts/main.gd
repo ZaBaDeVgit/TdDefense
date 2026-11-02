@@ -678,7 +678,7 @@ func setup_environment(sc: Dictionary) -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.9
+	env.tonemap_exposure = 0.8
 	env.glow_enabled = true
 	env.glow_intensity = 0.2
 	env.glow_bloom = 0.0
@@ -688,14 +688,14 @@ func setup_environment(sc: Dictionary) -> void:
 	env.fog_density = 0.0035
 	env.ssao_enabled = true
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.25
-	env.adjustment_contrast = 1.18
+	env.adjustment_saturation = 1.05
+	env.adjustment_contrast = 1.08
 	env.adjustment_brightness = 0.95
 	env_node.environment = env
 	apply_quality()
 	var night: bool = sc["id"] == "ciudad"
-	sun.light_energy = 0.9 if night else 1.35
-	sun.light_color = Color("#9fb4ff") if night else Color("#ffe2b0")
+	sun.light_energy = 0.9 if night else 1.1
+	sun.light_color = Color("#9fb4ff") if night else Color("#fff0d6")
 	sun.rotation_degrees = Vector3(-50, 35, 0) if night else Vector3(-58, 30, 0)
 
 func terrain_material(color: Color, strength: float = 0.035) -> ShaderMaterial:

@@ -16,12 +16,9 @@ func run_visual_smoke() -> void:
 	game.rng.seed = 4321
 	game.on_play(0)
 	game.gold = 5000
-	var count := 0
-	for r in range(game.H):
-		for c in range(game.W):
-			if game.can_build(c, r) and count < TDData.TOWER_ORDER.size():
-				game.place_tower(TDData.TOWER_ORDER[count], Vector2i(c, r))
-				count += 1
+	var cells := [Vector2i(3, 1), Vector2i(7, 4), Vector2i(12, 4), Vector2i(16, 8), Vector2i(18, 9)]
+	for i in range(TDData.TOWER_ORDER.size()):
+		game.place_tower(TDData.TOWER_ORDER[i], cells[i])
 	game.on_start_wave()
 	# Ceder varios fotogramas al renderizador y a las animaciones de construcción.
 	for i in range(30):
