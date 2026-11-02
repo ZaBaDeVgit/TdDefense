@@ -1,7 +1,4 @@
-node_modules/
-dist/
-build/
-release/
-*.log
 .DS_Store
-release-electron/
+/godot/.godot/
+/godot/export/
+*.log

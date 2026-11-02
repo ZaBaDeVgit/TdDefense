@@ -1,3 +1,6 @@
 .godot/
 *.import
 export_presets.cfg
+# Godot 4.3 extrae estas imágenes de los GLB durante la importación.
+/assets/models/*_texture_pbr_*
+/assets/models/SueloFuego_0.jpg

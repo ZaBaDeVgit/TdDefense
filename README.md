@@ -1,57 +1,48 @@
 # TD Defense
 
-Juego Tower Defense militar futurista en 3D (Three.js), en español, inspirado en el diseño de referencia
-`Tablero de defensa militar futurista.png`.
+Juego de defensa de torres en 3D para **Godot 4.3 o superior**, en español. El proyecto nativo está en [`godot/`](godot/): conserva los modelos originales de ZaBaDeV y los cuatro escenarios existentes.
 
-## Características
-- **5 torres** con modelos 3D procedurales y 3 niveles de mejora: Ametralladora ($100), Misiles ($150), Láser ($200), Antiaérea ($250, solo aéreos) y Eléctrica ($300, cadena de rayos).
-- **8 enemigos**: Soldado, Soldado Escudo, Araña Robot, Jeep Armado, Tanque, Camión Blindado, Dron y Helicóptero (aéreos). Jefes en las oleadas 5, 10 y 15.
-- **4 escenarios**: Base Militar, Desierto, Montaña y Ciudad, cada uno con su propia ruta, decoración y ambiente.
-- **15 oleadas** por partida, con bonificación de oro al superarlas.
-- **Habilidades**: bombardeo de misiles, radar (ralentiza), ataque nuclear, escudo de base y botiquín.
-- **Efectos**: partículas, explosiones, haces láser, arcos eléctricos, bloom, sombras, humo de misiles, textos flotantes.
-- **HUD**: vida, oro, oleada, minimapa, panel de enemigos, mejoras, pausa, velocidad x2, ajustes (sonido sintetizado, calidad, rangos).
+## Abrir y jugar
 
-## Controles
+1. Descarga la versión estándar de [Godot 4](https://godotengine.org/download/) (no hace falta .NET).
+2. En el gestor de proyectos selecciona **Importar** y elige `godot/project.godot`.
+3. Espera a que termine la primera importación de los modelos y pulsa **F5**.
+
+El proyecto usa el renderizador **Forward+**. Si el equipo tiene dificultades de rendimiento, cambia **Gráficos** a Media o Baja durante la partida. Para exportar un ejecutable, instala las plantillas de exportación de la misma versión de Godot y utiliza **Proyecto → Exportar**.
+
+## Cómo se juega
+
+Defiende la base durante 15 oleadas. Empiezas con 100 vidas y 850 de oro; eliminar enemigos y completar oleadas da oro para construir y mejorar.
+
+- Cinco torres con modelos originales, alcance y funciones distintas; se pueden mejorar hasta el nivel 3 o vender por el 60 % de lo invertido.
+- Enemigos terrestres y aéreos, con jefes en las oleadas 5, 10 y 15.
+- Cuatro escenarios: Base Militar, Desierto, Montaña y Ciudad.
+- Cinco habilidades: Rayo, Radar, Bomba, Escudo de base y Botiquín.
+- Rutas redondeadas y movimiento más ágil, vegetación con viento, agua animada y sombras configurables. El suelo de fuego original se conserva en el portal de entrada.
+
 | Acción | Control |
 |---|---|
-| Construir torre | Clic en la torre de la barra inferior y luego en una casilla verde |
-| Seleccionar / mejorar / vender | Clic en una torre (panel MEJORAS) · tecla `V` para modo vender |
-| Iniciar oleada | Botón ▶ Oleada o `Espacio` |
-| Pausa | `P` o `Esc` |
-| Torres rápidas | `1`–`5` |
-| Rotar cámara | Clic derecho + arrastrar |
+| Construir | Clic en una torre y luego en una casilla libre, o arrastrar la torre desde la barra |
+| Mejorar / vender | Clic en una torre construida y usar su panel |
+| Torres rápidas | Teclas **1–5** |
+| Iniciar oleada | Botón **▶ Oleada** o **Espacio** |
+| Habilidades | Botones inferiores; Rayo y Radar requieren elegir un punto del mapa |
+| Pausa | **Esc**, **P** o botón Pausa |
+| Cancelar selección | Clic derecho o **Esc** |
+| Mover cámara | Arrastrar con el botón central o acercar el cursor a los bordes |
 | Zoom | Rueda del ratón |
-| Mover cámara | Flechas |
-| Cancelar modo | Clic derecho o `Esc` |
 
-## Ejecutar en desarrollo
-```bash
-npm install
-npm run dev        # http://localhost:5173
+## Pruebas de lógica
+
+Con Godot instalado y desde la raíz del repositorio:
+
+```sh
+godot --headless --path godot --import
+godot --headless --path godot --script res://tests/run_tests.gd
 ```
 
-## Generar el ejecutable (Windows)
-Requiere Node.js 18+ y conexión a internet (descarga el Node para Windows).
-```bash
-npm install        # IMPRESCINDIBLE antes de generar nada (instala vite y postject)
-npm run exe        # genera release/TDDefense.exe (y build/TDDefense-linux para pruebas)
-```
+Las pruebas comprueban los modelos importados, rutas, construcción, mejoras, combate, habilidades y flujo de partida. Además, la integración continua comprueba que se renderice una imagen con OpenGL por software. Ninguna sustituye una revisión visual en Forward+ con una GPU compatible.
 
-Para la versión Electron (ventana nativa): `npm install` y luego `npm run dist:win`.
-`TDDefense.exe` es un único archivo: contiene el juego completo y un servidor local que solo escucha en `127.0.0.1`.
-Al ejecutarlo abre el juego en una ventana de Microsoft Edge/Chrome (modo aplicación) o en el navegador predeterminado.
-Cierra la consola para salir.
+## Créditos
 
-Para probar el lanzador en Linux sin empaquetar: `npm run exe:linux` y luego `./build/TDDefense-linux`.
-
-## Estructura
-- `index.html`, `src/style.css` — interfaz (menús, HUD, paneles).
-- `src/main.js` — renderizado, cámara, entrada, HUD y bucle principal.
-- `src/game.js` — lógica: oleadas, torres, enemigos, habilidades, economía.
-- `src/models.js` — modelos 3D procedurales (torres, enemigos, props, base).
-- `src/effects.js` — partículas, haces, arcos, anillos, textos.
-- `src/audio.js` — sonidos sintetizados con WebAudio.
-- `src/maps.js` — escenarios en rejilla ASCII; la ruta se calcula automáticamente.
-- `launcher/sea-main.cjs` — lanzador empaquetado en el `.exe` (Node SEA).
-- `scripts/build-exe.mjs` — compila el juego y genera el `.exe`.
+Modelos, texturas y efectos originales: **ZaBaDeV**. Detalles y condiciones de uso en [`godot/assets/models/CREDITOS_MODELOS.txt`](godot/assets/models/CREDITOS_MODELOS.txt). `Tablero de defensa militar futurista.png` es la referencia visual original del proyecto.

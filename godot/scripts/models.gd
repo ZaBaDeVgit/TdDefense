@@ -4,7 +4,7 @@ extends RefCounted
 
 static var _mats: Dictionary = {}
 
-# Modelos glTF (CC0, ver assets/models/CREDITOS_MODELOS.txt): nombre, tamano objetivo
+# Modelos originales de ZaBaDeV (ver CREDITOS_MODELOS.txt): nombre y tamaño objetivo.
 const GLB_ENEMIES := {
 	"soldier": ["Enemigo1", 1.8], "shield": ["Enemigo2", 1.8], "spider": ["Enemigo3", 1.6],
 	"jeep": ["Enemigo4", 2.2], "tank": ["EnemigoBoss", 3.0], "truck": ["Kuro", 3.0], "drone": ["EnemigoVolador", 1.2],
@@ -33,19 +33,19 @@ static func load_model(model_name: String, target: float) -> Node3D:
 	if inst == null:
 		return null
 	var boxes: Array = []
-	_collect_aabb(inst, Transform3D.IDENTITY, boxes)
+	_collect_aabb(inst, inst.transform, boxes)
 	if boxes.is_empty():
-		inst.queue_free()
+		inst.free()
 		return null
 	var bb: AABB = boxes[0]
 	for b in boxes:
 		bb = bb.merge(b)
 	var ext := maxf(bb.size.x, maxf(bb.size.y, bb.size.z))
 	if ext < 0.0001 or ext > 1000.0:
-		inst.queue_free()
+		inst.free()
 		return null
 	var c := Vector3(bb.position.x + bb.size.x / 2.0, bb.position.y, bb.position.z + bb.size.z / 2.0)
-	inst.position = -c
+	inst.position -= c
 	var holder := Node3D.new()
 	holder.add_child(inst)
 	holder.scale = Vector3.ONE * (target / ext)
@@ -53,11 +53,12 @@ static func load_model(model_name: String, target: float) -> Node3D:
 	return holder
 
 static func _collect_aabb(node: Node, xf: Transform3D, acc: Array) -> void:
+	# Algunos GLB importan la malla en la raíz, otros en un nodo hijo.
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		acc.append(xf * (node as MeshInstance3D).mesh.get_aabb())
 	for child in node.get_children():
 		if child is Node3D:
 			var cxf: Transform3D = xf * (child as Node3D).transform
-			if child is MeshInstance3D and (child as MeshInstance3D).mesh != null:
-				acc.append(cxf * (child as MeshInstance3D).mesh.get_aabb())
 			_collect_aabb(child, cxf, acc)
 
 static func mat(key: String) -> StandardMaterial3D:
@@ -111,7 +112,7 @@ static func mat(key: String) -> StandardMaterial3D:
 
 # Texturas procedurales (ruido de Godot), creadas una sola vez
 static var _soft_noise: NoiseTexture2D = null
-static var _camo_noise: NoiseTexture2D = null
+static var _camo_noise: ImageTexture = null
 
 static func soft_noise() -> Texture2D:
 	if _soft_noise == null:
@@ -132,19 +133,19 @@ static func soft_noise() -> Texture2D:
 
 static func camo_noise() -> Texture2D:
 	if _camo_noise == null:
-		var fn := FastNoiseLite.new()
-		fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-		fn.frequency = 0.035
-		fn.fractal_octaves = 4
-		var g := Gradient.new()
-		g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
-		g.colors = PackedColorArray([Color(0.5, 0.5, 0.5), Color(0.85, 0.85, 0.85), Color(1, 1, 1)])
-		_camo_noise = NoiseTexture2D.new()
-		_camo_noise.noise = fn
-		_camo_noise.color_ramp = g
-		_camo_noise.width = 256
-		_camo_noise.height = 256
-		_camo_noise.seamless = true
+		# Generación síncrona: evita mantener tareas de NoiseTexture2D vivas
+		# cuando se cierra el juego y se destruye el renderizador.
+		var noise := FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		noise.frequency = 0.035
+		noise.fractal_octaves = 4
+		var image := Image.create(128, 128, false, Image.FORMAT_RGBA8)
+		for y in range(128):
+			for x in range(128):
+				var value := clampf(noise.get_noise_2d(x, y) * 0.5 + 0.5, 0.0, 1.0)
+				var shade := lerpf(0.5, 1.0, value)
+				image.set_pixel(x, y, Color(shade, shade, shade))
+		_camo_noise = ImageTexture.create_from_image(image)
 	return _camo_noise
 
 static func ground_mat(col: Color) -> StandardMaterial3D:
@@ -232,19 +233,26 @@ static func pivot(parent: Node3D, pos: Vector3 = Vector3.ZERO, rot: Vector3 = Ve
 # ---------------- Torres ----------------
 static func build_tower(type: String, level: int) -> Node3D:
 	var root := Node3D.new()
-	box(root, Vector3(2.4, 0.45, 2.4), mat("dark"), Vector3(0, 0.22, 0))
-	cyl(root, 1.3, 1.45, 0.45, mat("dark"), Vector3(0, 0.22, 0), Vector3.ZERO, 8)
-	torus(root, 1.18, 1.28, glow("#ff8a1a", 1.5), Vector3(0, 0.47, 0), Vector3(PI / 2, 0, 0))
+	# Una plataforma contenida en la casilla y luces de nivel visibles también
+	# cuando la torre usa el modelo original (no solo la geometría de respaldo).
+	box(root, Vector3(1.9, 0.32, 1.9), mat("dark"), Vector3(0, 0.16, 0))
+	cyl(root, 0.94, 1.02, 0.3, mat("steel"), Vector3(0, 0.3, 0), Vector3.ZERO, 8)
+	var accents := {"mg": "#ffb35c", "missile": "#ff6b4a", "laser": "#44c8ff", "aa": "#ffd166", "tesla": "#7fe9ff"}
+	var accent: String = accents.get(type, "#ff8a1a")
+	torus(root, 0.88, 0.96, glow(accent, 1.5), Vector3(0, 0.46, 0))
+	for i in range(3):
+		var a := -PI / 2.0 + float(i) * TAU / 3.0
+		var marker_mat := glow(accent, 2.5) if i < level else mat("rubber")
+		var marker := sph(root, 0.085, marker_mat, Vector3(cos(a) * 0.78, 0.49, sin(a) * 0.78))
+		marker.name = "IndicadorNivel%d" % (i + 1)
 	if GLB_TOWERS.has(type):
 		var tm := load_model(String(GLB_TOWERS[type][0]), float(GLB_TOWERS[type][1]))
 		if tm != null:
 			tm.position.y = 0.5
 			root.add_child(tm)
 			root.set_meta("turret", tm)
+			root.set_meta("uses_original_model", true)
 			return root
-	for i in range(level):
-		var a := -PI / 2 + float(i) * (PI * 2.0 / 3.0)
-		sph(root, 0.1, glow("#ffd166", 3.0), Vector3(cos(a) * 1.0, 0.55, sin(a) * 1.0))
 	var turret := pivot(root, Vector3(0, 0.6, 0))
 	root.set_meta("turret", turret)
 	match type:
@@ -291,8 +299,7 @@ static func build_enemy(type: String) -> Node3D:
 		var m := load_model(String(spec[0]), float(spec[1]))
 		if m != null:
 			body.add_child(m)
-			if type == "shield":
-				box(body, Vector3(0.7, 1.0, 0.1), mat("steel"), Vector3(0, 1.0, -0.35))
+			root.set_meta("uses_original_model", true)
 			root.set_meta("legs", [])
 			root.set_meta("rotors", [])
 			return root
@@ -449,7 +456,7 @@ static func build_hq() -> Node3D:
 	box(root, Vector3(2.6, 0.2, 2.6), mat("dark"), Vector3(0, 2.1, 0))
 	var core := cyl(root, 0.9, 0.9, 0.25, glow("#ff8a1a", 2.2), Vector3(0, 2.3, 0), Vector3.ZERO, 16)
 	root.set_meta("core", core)
-	torus(root, 2.6, 2.75, glow("#44c8ff", 1.5), Vector3(0, 0.45, 0), Vector3(PI / 2, 0, 0))
+	torus(root, 2.6, 2.75, glow("#44c8ff", 1.5), Vector3(0, 0.45, 0))
 	cyl(root, 0.05, 0.05, 2.2, mat("steel"), Vector3(1.4, 3.2, 1.4))
 	sph(root, 0.45, mat("white"), Vector3(1.4, 4.4, 1.4), Vector3(1, 0.4, 1))
 	return root
@@ -457,7 +464,7 @@ static func build_hq() -> Node3D:
 static func build_spawn() -> Node3D:
 	var root := Node3D.new()
 	cyl(root, 1.2, 1.3, 0.2, mat("concrete"), Vector3(0, 0.1, 0), Vector3.ZERO, 8)
-	torus(root, 0.9, 1.05, glow("#7dff7a", 2.0), Vector3(0, 0.25, 0), Vector3(PI / 2, 0, 0))
+	torus(root, 0.9, 1.05, glow("#7dff7a", 2.0), Vector3(0, 0.25, 0))
 	return root
 
 static func build_missile() -> Node3D:

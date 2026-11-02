@@ -1,68 +1,16 @@
-# TD Defense — versión Godot 4 (Windows)
+# TD Defense en Godot
 
-Juego de tower defense militar futurista hecho con **Godot 4.3** (GDScript).
-Es la versión nueva del proyecto: se ejecuta directamente desde el editor de Godot.
+Abre `project.godot` con **Godot 4.3 o superior**, espera a que termine la importación de los modelos GLB y pulsa **F5**. El juego utiliza Forward+; si es necesario, baja la opción **Gráficos** dentro de la partida.
 
-## 1. Instalar Godot (una vez)
+Construye torres con un clic o arrastrándolas desde la barra inferior. Selecciona una torre para mejorarla o venderla. Pulsa **Espacio** para iniciar cada oleada; **1–5** seleccionan torres, **Esc/P** pausa, la rueda cambia el zoom y el botón central desplaza la cámara. Rayo y Radar requieren elegir un objetivo en el mapa.
 
-1. Entra en https://godotengine.org/download/windows/ y descarga **Godot Engine 4.3 – Standard** (zip de 64 bits, *no* la versión .NET/Mono).
-2. Descomprime el zip en una carpeta, por ejemplo `C:\Godot\`. Godot es un único `.exe` portable; no necesita instalación.
+Hay cuatro escenarios, quince oleadas, cinco torres con tres niveles y cinco habilidades. Las rutas tienen curvas suavizadas, los enemigos se desplazan con mayor agilidad y el terreno incluye agua, viento y sombras.
 
-## 2. Abrir y ejecutar el juego
+Desde la raíz del repositorio se pueden ejecutar las pruebas automatizadas:
 
-1. Abre `Godot_v4.3-stable_win64.exe`.
-2. En el gestor de proyectos pulsa **Importar** y selecciona el archivo `godot/project.godot` de esta carpeta.
-3. Pulsa **Importar y editar**. La primera vez Godot crea su caché; espera unos segundos.
-4. Pulsa **F5** (o el botón ▶ arriba a la derecha) para jugar.
-
-## 3. Controles (solo ratón)
-
-| Acción | Control |
-|---|---|
-| Elegir torre | Pulsa una torre en la barra inferior, luego clic en una casilla verde |
-| Arrastrar torre | Mantén pulsada una torre en la barra inferior y suéltala sobre una casilla verde |
-| Seleccionar / mejorar / vender | Clic sobre una torre construida → panel con **Mejorar** y **Vender** |
-| Cancelar | **Clic derecho** (o Esc) |
-| Iniciar oleada | Botón **▶ Oleada** |
-| Habilidades | Botones de la barra inferior (Rayo y Radar piden un objetivo con clic) |
-| Pausa / Menú | Botones **Pausa** y **Menú** de la barra superior (Esc también pausa) |
-| Calidad gráfica | Botón **Gráficos** (Baja / Media / Alta); el contador **FPS** está arriba a la derecha |
-| Mover cámara | Arrastrar con el **botón central**, o acercar el ratón a los bordes de la pantalla |
-| Zoom | Rueda del ratón |
-
-## 4. Contenido
-
-- 5 torres: Flechas ($100), Cañón de asedio ($150), Torre arcana ($200), Espectral ($250, anti-aéreo), Torre de rayos ($300). Mejoras hasta nivel 3.
-- Enemigos terrestres y aéreos (soldados, escudos, arañas, jeeps, tanques, camiones, drones, helicópteros) con jefes en las oleadas 5, 10 y 15.
-- 4 escenarios: Base Militar, Desierto, Montaña y Ciudad.
-- 15 oleadas por mapa, vida 100, oro inicial 850.
-- 5 habilidades: Rayo (impactos), Radar (ralentiza), Bomba (nuclear), Escudo de base (10 s) y Botiquín (+25 vida).
-- Suelo de fuego: las losetas del camino son solo visuales.
-- Modelos: godot/assets/models (GLB optimizados, ver CREDITOS_MODELOS.txt).
-
-## Creditos
-- Modelos, texturas y efectos 3D: **ZaBaDeV** (https://github.com/ZaBaDeVgit), licencia libre. Detalle en `assets/models/CREDITOS_MODELOS.txt`.
-
-Los datos de torres, enemigos, oleadas y mapas se han portado desde la versión web (`src/`), así que el equilibrio es el mismo.
-
-## 5. Estructura
-
-```
-godot/
-  project.godot          configuración del proyecto
-  scenes/main.tscn       escena única (raíz con main.gd)
-  scripts/main.gd        lógica del juego, menús, HUD, entrada
-  scripts/data.gd        torres, enemigos, oleadas, escenarios (mapas)
-  scripts/models.gd      modelos 3D procedurales (torres, enemigos, decoración)
-  scripts/fx.gd          efectos: explosiones, humo, destellos, rayos, textos
+```sh
+godot --headless --path godot --import
+godot --headless --path godot --script res://tests/run_tests.gd
 ```
 
-## 6. Exportar a .exe (opcional)
-
-En el editor: **Proyecto → Exportar… → Añadir… → Windows Desktop**, pulsa **Exportar proyecto** y guarda el `.exe`.
-La primera vez Godot pide descargar las *plantillas de exportación* (**Editor → Gestionar plantillas de exportación → Descargar e instalar**).
-
-## 7. Si algo falla
-
-Copia el texto del panel **Salida** (o **Depurador**, abajo en el editor) y envíalo al chat junto con lo que estabas haciendo.
-Esta versión se ha escrito sin poder ejecutarla en el entorno de desarrollo, así que los primeros errores de compilación son posibles y se corrigen rápido con ese texto.
+Las pruebas sin ventana no sustituyen una comprobación visual con Godot. Encontrarás controles y más información en el `README.md` de la raíz. Los modelos y sus créditos se conservan en `assets/models/CREDITOS_MODELOS.txt`.

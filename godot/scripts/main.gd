@@ -2,10 +2,13 @@
 extends Node3D
 
 const AIR_Y := 3.6
-var COL_TEXT := Color("#e8f6ff")
-var COL_ACCENT := Color("#3ad0ff")
-var COL_WARN := Color("#ff6b5a")
-var COL_GOLD := Color("#ffd166")
+const TERRAIN_SHADER := preload("res://shaders/terrain.gdshader")
+const WATER_SHADER := preload("res://shaders/water.gdshader")
+const GRASS_SHADER := preload("res://shaders/wind_grass.gdshader")
+const COL_TEXT := Color("#e8f6ff")
+const COL_ACCENT := Color("#3ad0ff")
+const COL_WARN := Color("#ff6b5a")
+const COL_GOLD := Color("#ffd166")
 
 var cam: Camera3D
 var sun: DirectionalLight3D
@@ -35,6 +38,9 @@ var air_total := 0.0
 var cam_target := Vector3.ZERO
 var cam_dist := 46.0
 var cam_orbit := 0.0
+var wind_time := 0.0
+var wind_props: Array = []
+var cell_props: Dictionary = {}
 
 # Estado de partida
 var gold := 0
@@ -108,7 +114,12 @@ func _ready() -> void:
 	add_child(cam)
 	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 140.0
+	sun.directional_shadow_max_distance = 100.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_blend_splits = true
+	sun.shadow_bias = 0.045
+	sun.shadow_normal_bias = 1.0
+	sun.shadow_blur = 1.3
 	sun.rotation_degrees = Vector3(-55, 35, 0)
 	add_child(sun)
 	env_node = WorldEnvironment.new()
@@ -125,7 +136,9 @@ func _ready() -> void:
 	flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(flash_rect)
-	# Fondo del menu: el primer escenario girando lentamente
+	get_viewport().size_changed.connect(layout_ui)
+	layout_ui()
+	# Fondo del menú: el primer escenario girando lentamente.
 	build_world(0)
 	show_menu()
 
@@ -232,18 +245,18 @@ func build_hud() -> void:
 	bottom_panel = panel()
 	var bottom := bottom_panel
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -118
-	bottom.offset_bottom = -12
+	bottom.offset_top = -140
+	bottom.offset_bottom = -14
 	bottom.offset_left = 12
 	bottom.offset_right = -12
 	hud_root.add_child(bottom)
 	var bh := HBoxContainer.new()
-	bh.add_theme_constant_override("separation", 10)
+	bh.add_theme_constant_override("separation", 8)
 	bottom.add_child(bh)
 	for i in range(TDData.TOWER_ORDER.size()):
 		var key: String = TDData.TOWER_ORDER[i]
 		var t: Dictionary = TDData.TOWERS[key]
-		var b := mk_button("%s\n$%d" % [t["name"], t["cost"]], on_build.bind(key), Vector2(150, 62), 15)
+		var b := mk_button("%s\n$%d" % [t["name"], t["cost"]], on_build.bind(key), Vector2(140, 62), 15)
 		var tcol := Color(String(t["color"]))
 		b.add_theme_stylebox_override("normal", sbox(Color(0.03, 0.06, 0.12, 0.96), tcol, 10, 3))
 		tower_btns[key] = b
@@ -251,15 +264,15 @@ func build_hud() -> void:
 		bh.add_child(b)
 	var sep := VSeparator.new()
 	bh.add_child(sep)
-	skill_btns["misil"] = mk_button("Rayo", on_skill.bind("misil"), Vector2(112, 62), 15)
-	skill_btns["radar"] = mk_button("Radar", on_skill.bind("radar"), Vector2(112, 62), 15)
-	skill_btns["nuke"] = mk_button("Bomba", on_skill.bind("nuke"), Vector2(112, 62), 15)
-	skill_btns["shield"] = mk_button("Escudo", on_skill.bind("shield"), Vector2(112, 62), 15)
-	skill_btns["heal"] = mk_button("Botiquín", on_skill.bind("heal"), Vector2(112, 62), 15)
+	skill_btns["misil"] = mk_button("Rayo", on_skill.bind("misil"), Vector2(105, 62), 15)
+	skill_btns["radar"] = mk_button("Radar", on_skill.bind("radar"), Vector2(105, 62), 15)
+	skill_btns["nuke"] = mk_button("Bomba", on_skill.bind("nuke"), Vector2(105, 62), 15)
+	skill_btns["shield"] = mk_button("Escudo", on_skill.bind("shield"), Vector2(105, 62), 15)
+	skill_btns["heal"] = mk_button("Botiquín", on_skill.bind("heal"), Vector2(105, 62), 15)
 	for k in ["misil", "radar", "nuke", "shield", "heal"]:
 		bh.add_child(skill_btns[k])
 	bh.add_child(VSeparator.new())
-	btn_wave = mk_button("▶ Oleada 1", on_start_wave, Vector2(170, 58), 18)
+	btn_wave = mk_button("▶ Oleada 1", on_start_wave, Vector2(160, 58), 18)
 	bh.add_child(btn_wave)
 
 func make_screen() -> Control:
@@ -335,14 +348,14 @@ func build_menu() -> void:
 	v3.add_child(mk_label("Cómo jugar", 34, COL_ACCENT))
 	var txt := mk_label("""Arrastra una torre desde la barra inferior hasta una casilla verde del mapa.
 Haz clic en una torre construida para mejorarla (hasta nivel 3) o venderla.
-Pulsa ▶ Oleada para empezar. Los enemigos siguen el camino hasta tu base.
+Pulsa ▶ Oleada o Espacio para empezar. Los enemigos siguen la ruta hasta tu base.
 Cada enemigo abatido da oro. Si pierdes todas las vidas, la base cae.
 Habilidades: Rayo y Radar requieren un objetivo; Bomba, Escudo y Botiquín son inmediatas.
 
 Controles con ratón:
 · Arrastrar con el botón central: mover la cámara
 · Rueda: zoom · Acercar el ratón a los bordes: desplazar
-· Clic derecho: cancelar · Esc: pausa""", 16, COL_TEXT)
+· Clic derecho: cancelar · Esc o P: pausa · 1–5: torres""", 16, COL_TEXT)
 	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	txt.custom_minimum_size = Vector2(680, 0)
 	v3.add_child(txt)
@@ -529,6 +542,37 @@ func compute_path() -> Array:
 		node = prev[node]
 	return path
 
+# Redondea cada esquina dentro de la propia loseta, sin cruzar el terreno
+# edificable. La longitud se calcula después a partir de estas muestras.
+func smooth_path(cells: Array) -> Array:
+	var result: Array = []
+	if cells.is_empty():
+		return result
+	var centers: Array = []
+	for cell in cells:
+		var c: Vector2i = cell
+		centers.append(cell_pos(c.x, c.y))
+	result.append(centers[0])
+	for i in range(1, centers.size() - 1):
+		var previous: Vector3 = centers[i - 1]
+		var corner: Vector3 = centers[i]
+		var next: Vector3 = centers[i + 1]
+		var incoming := (corner - previous).normalized()
+		var outgoing := (next - corner).normalized()
+		if incoming.dot(outgoing) > 0.999:
+			result.append(corner)
+			continue
+		var radius := TDData.TILE * 0.28
+		var entry := corner - incoming * radius
+		var exit := corner + outgoing * radius
+		result.append(entry)
+		for step in range(1, 6):
+			var t := float(step) / 5.0
+			result.append(entry * (1.0 - t) * (1.0 - t) + corner * 2.0 * (1.0 - t) * t + exit * t * t)
+	if centers.size() > 1:
+		result.append(centers[-1])
+	return result
+
 func make_mat(hex: String) -> StandardMaterial3D:
 	return TDModels.mat(hex)
 
@@ -539,6 +583,10 @@ func build_world(idx: int) -> void:
 	world = Node3D.new()
 	add_child(world)
 	var sc: Dictionary = TDData.SCENARIOS[idx]
+	wind_props = []
+	cell_props = {}
+	spawn_cell = Vector2i.ZERO
+	base_cell = Vector2i.ZERO
 	grid = sc["grid"]
 	H = grid.size()
 	W = 0
@@ -553,18 +601,15 @@ func build_world(idx: int) -> void:
 			elif t == "B":
 				base_cell = Vector2i(c, r)
 	var path_cells := compute_path()
-	path_pts = []
+	path_pts = smooth_path(path_cells)
 	path_len = []
 	path_total = 0.0
-	for i in range(path_cells.size()):
-		var pc: Vector2i = path_cells[i]
-		var p := cell_pos(pc.x, pc.y)
-		path_pts.append(p)
-		if i == 0:
-			path_len.append(0.0)
-		else:
-			path_total += p.distance_to(path_pts[i - 1])
-			path_len.append(path_total)
+	for i in range(path_pts.size()):
+		if i > 0:
+			path_total += (path_pts[i] as Vector3).distance_to(path_pts[i - 1])
+		path_len.append(path_total)
+	if path_pts.is_empty():
+		push_error("No hay una ruta entre la entrada y la base en el escenario " + str(sc["name"]))
 	base_pos = cell_pos(base_cell.x, base_cell.y)
 	spawn_pos = cell_pos(spawn_cell.x, spawn_cell.y)
 	air_total = Vector2(spawn_pos.x - base_pos.x, spawn_pos.z - base_pos.z).length()
@@ -572,13 +617,12 @@ func build_world(idx: int) -> void:
 	cam_orbit = 0.0
 	setup_environment(sc)
 	build_terrain(sc)
-	# Losetas de fuego (SueloFuego, solo visual) sobre la ruta de los enemigos
-	for pc in path_cells:
-		var fire := TDModels.load_model("SueloFuego", TDData.TILE)
-		if fire != null:
-			var fp := cell_pos(pc.x, pc.y)
-			fire.position = Vector3(fp.x, 0.05, fp.z)
-			world.add_child(fire)
+	# Conservamos el suelo de fuego original como portal de entrada, sin
+	# tapar toda la carretera ni ocultar las rutas de los cuatro mapas.
+	var fire := TDModels.load_model("SueloFuego", TDData.TILE * 1.1)
+	if fire != null:
+		fire.position = spawn_pos + Vector3(0, 0.07, 0)
+		world.add_child(fire)
 	var hq := TDModels.build_hq()
 	hq.position = base_pos
 	world.add_child(hq)
@@ -621,20 +665,28 @@ func make_ring(color: Color) -> MeshInstance3D:
 	return mi
 
 func setup_environment(sc: Dictionary) -> void:
-	var env := Environment.new()
-	var sky := ProceduralSkyMaterial.new()
+	# Reutilizar el cielo al cambiar de mapa evita crear texturas de entorno
+	# adicionales cada vez que se reinicia una partida.
+	var env: Environment = env_node.environment
+	if env == null:
+		env = Environment.new()
+	var sky_res: Sky = env.sky
+	if sky_res == null:
+		sky_res = Sky.new()
+	var sky := sky_res.sky_material as ProceduralSkyMaterial
+	if sky == null:
+		sky = ProceduralSkyMaterial.new()
+		sky_res.sky_material = sky
 	sky.sky_top_color = Color(sc["sky_top"])
 	sky.sky_horizon_color = Color(sc["sky_bottom"])
 	sky.ground_horizon_color = Color(sc["sky_bottom"]).darkened(0.3)
 	sky.ground_bottom_color = Color(sc["ground"]).darkened(0.6)
-	var sky_res := Sky.new()
-	sky_res.sky_material = sky
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky_res
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 0.55
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.9
+	env.tonemap_exposure = 0.8
 	env.glow_enabled = true
 	env.glow_intensity = 0.2
 	env.glow_bloom = 0.0
@@ -644,60 +696,95 @@ func setup_environment(sc: Dictionary) -> void:
 	env.fog_density = 0.0035
 	env.ssao_enabled = true
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.25
-	env.adjustment_contrast = 1.18
+	env.adjustment_saturation = 1.05
+	env.adjustment_contrast = 1.08
 	env.adjustment_brightness = 0.95
 	env_node.environment = env
 	apply_quality()
 	var night: bool = sc["id"] == "ciudad"
-	sun.light_energy = 0.9 if night else 1.35
-	sun.light_color = Color("#9fb4ff") if night else Color("#ffe2b0")
+	sun.light_energy = 0.9 if night else 1.1
+	sun.light_color = Color("#9fb4ff") if night else Color("#fff0d6")
 	sun.rotation_degrees = Vector3(-50, 35, 0) if night else Vector3(-58, 30, 0)
+
+func terrain_material(color: Color, strength: float = 0.035) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = TERRAIN_SHADER
+	material.set_shader_parameter("ground_color", color)
+	material.set_shader_parameter("wind_strength", strength)
+	return material
 
 func build_terrain(sc: Dictionary) -> void:
 	var base_col := Color(sc["ground"])
-	var variants := [base_col.darkened(0.12), base_col.darkened(0.2), base_col]
-	var road_mat := make_mat(sc["road"])
-	var water_mat := StandardMaterial3D.new()
-	water_mat.albedo_color = Color(sc["water"])
-	water_mat.metallic = 0.2
-	water_mat.roughness = 0.08
-	water_mat.emission_enabled = true
-	water_mat.emission = Color(sc["water"]).darkened(0.4)
+	var variants := [terrain_material(base_col.darkened(0.03)), terrain_material(base_col.darkened(0.06)), terrain_material(base_col)]
+	var road_mat := terrain_material(Color(sc["road"]), 0.006)
+	var water_mat := ShaderMaterial.new()
+	water_mat.shader = WATER_SHADER
+	water_mat.set_shader_parameter("water_color", Color(sc["water"]))
+	var water_mesh := PlaneMesh.new()
+	water_mesh.size = Vector2(TDData.TILE, TDData.TILE)
+	water_mesh.subdivide_width = 6
+	water_mesh.subdivide_depth = 6
 	var deco: Array = sc["deco"]
-	# Suelo exterior
-	var _outer := TDModels.box(world, Vector3(260, 0.4, 260), make_mat("#" + base_col.darkened(0.35).to_html(false)), Vector3(W * TDData.TILE * 0.5, -0.45, H * TDData.TILE * 0.5))
+	# El exterior se encuentra justo debajo del tablero, sin parpadeos.
+	TDModels.box(world, Vector3(260, 0.4, 260), terrain_material(base_col.darkened(0.35)), Vector3(W * TDData.TILE * 0.5, -0.29, H * TDData.TILE * 0.5))
 	for r in range(H):
 		for c in range(W):
 			var t := get_tile(c, r)
 			var p := cell_pos(c, r)
-			var gcol: Color = variants[rng.randi() % 3]
 			if t == "~":
-				var _w := TDModels.box(world, Vector3(TDData.TILE, 0.3, TDData.TILE), water_mat, Vector3(p.x, -0.12, p.z))
+				var water := MeshInstance3D.new()
+				water.mesh = water_mesh
+				water.material_override = water_mat
+				water.position = p + Vector3(0, 0.015, 0)
+				water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				world.add_child(water)
 				continue
-			# Terreno base de cada casilla
-			var _g := TDModels.box(world, Vector3(TDData.TILE, 0.4, TDData.TILE), TDModels.ground_mat(gcol), Vector3(p.x, -0.2, p.z))
-			if t == "P":
-				var _rd := TDModels.box(world, Vector3(TDData.TILE * 1.02, 0.06, TDData.TILE * 1.02), road_mat, Vector3(p.x, 0.03, p.z))
+			TDModels.box(world, Vector3(TDData.TILE, 0.4, TDData.TILE), variants[rng.randi() % variants.size()], Vector3(p.x, -0.2, p.z))
+			if t == "P" or t == "S" or t == "B":
+				TDModels.box(world, Vector3(TDData.TILE, 0.06, TDData.TILE), road_mat, Vector3(p.x, 0.03, p.z))
+				# Marcas discretas en los tramos rectos facilitan leer la ruta.
+				var horizontal := passable(c - 1, r) and passable(c + 1, r)
+				var vertical := passable(c, r - 1) and passable(c, r + 1)
+				if horizontal != vertical:
+					var size := Vector3(0.66, 0.01, 0.055) if horizontal else Vector3(0.055, 0.01, 0.66)
+					TDModels.box(world, size, make_mat("#b3ad90"), p + Vector3(0, 0.069, 0))
 			elif t == "#":
-				var h := rng.randf_range(1.6, 3.4)
-				var bcols: Array = ["#8d8a80", "#a39a86", "#6f7480"]
-				var bcol: String = bcols[rng.randi() % 3]
-				var _bld := TDModels.box(world, Vector3(TDData.TILE * 0.86, h, TDData.TILE * 0.86), make_mat(bcol), Vector3(p.x, h / 2.0, p.z))
-				TDModels.box(world, Vector3(TDData.TILE * 0.9, 0.15, TDData.TILE * 0.9), TDModels.glow("#44c8ff", 0.8), Vector3(p.x, h + 0.08, p.z))
-				var half := TDData.TILE * 0.43
-				for fy in [0.4, 0.75]:
-					var yy: float = h * float(fy)
-					var win := TDModels.glow("#ffd9a0", 0.9)
-					TDModels.box(world, Vector3(TDData.TILE * 0.7, 0.14, 0.04), win, Vector3(p.x, yy, p.z + half))
-					TDModels.box(world, Vector3(TDData.TILE * 0.7, 0.14, 0.04), win, Vector3(p.x, yy, p.z - half))
-					TDModels.box(world, Vector3(0.04, 0.14, TDData.TILE * 0.7), win, Vector3(p.x + half, yy, p.z))
-					TDModels.box(world, Vector3(0.04, 0.14, TDData.TILE * 0.7), win, Vector3(p.x - half, yy, p.z))
-			elif t == "." and rng.randf() < 0.38 and not deco.is_empty():
+				build_obstacle(sc, p)
+			elif t == "." and rng.randf() < 0.22 and not deco.is_empty():
 				var kind: String = deco[rng.randi() % deco.size()]
-				var prop := TDModels.build_prop(kind, rng)
-				prop.position = p + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
-				world.add_child(prop)
+				add_scenery(kind, p + Vector3(rng.randf_range(-0.4, 0.4), 0, rng.randf_range(-0.4, 0.4)), Vector2i(c, r))
+	build_grass(sc)
+
+func build_obstacle(sc: Dictionary, p: Vector3) -> void:
+	if sc["id"] != "ciudad":
+		# Montañas y mesetas, en vez de edificios repetidos en todos los biomas.
+		var kind := "snowrock" if sc["id"] == "montana" else "rock"
+		var rock := TDModels.build_prop(kind, rng)
+		rock.position = p
+		rock.scale *= rng.randf_range(1.4, 1.9)
+		world.add_child(rock)
+		return
+	var h := rng.randf_range(1.6, 3.4)
+	var bcols: Array = ["#8d8a80", "#a39a86", "#6f7480"]
+	TDModels.box(world, Vector3(TDData.TILE * 0.86, h, TDData.TILE * 0.86), make_mat(bcols[rng.randi() % 3]), Vector3(p.x, h / 2.0, p.z))
+	TDModels.box(world, Vector3(TDData.TILE * 0.9, 0.15, TDData.TILE * 0.9), TDModels.glow("#44c8ff", 0.8), Vector3(p.x, h + 0.08, p.z))
+	var half := TDData.TILE * 0.43
+	for fy in [0.4, 0.75]:
+		var yy: float = h * float(fy)
+		var win := TDModels.glow("#ffd9a0", 0.9)
+		TDModels.box(world, Vector3(TDData.TILE * 0.7, 0.14, 0.04), win, Vector3(p.x, yy, p.z + half))
+		TDModels.box(world, Vector3(TDData.TILE * 0.7, 0.14, 0.04), win, Vector3(p.x, yy, p.z - half))
+		TDModels.box(world, Vector3(0.04, 0.14, TDData.TILE * 0.7), win, Vector3(p.x + half, yy, p.z))
+		TDModels.box(world, Vector3(0.04, 0.14, TDData.TILE * 0.7), win, Vector3(p.x - half, yy, p.z))
+
+func add_scenery(kind: String, pos: Vector3, cell: Vector2i = Vector2i(-1, -1)) -> void:
+	var prop := TDModels.build_prop(kind, rng)
+	prop.position = pos
+	world.add_child(prop)
+	if cell.x >= 0:
+		cell_props[cell] = prop
+	if kind in ["pine", "broadleaf", "palm"]:
+		wind_props.append({"node": prop, "rotation": prop.rotation, "phase": rng.randf_range(0.0, TAU)})
 
 func scatter_props(sc: Dictionary) -> void:
 	var deco: Array = sc["deco"]
@@ -714,10 +801,59 @@ func scatter_props(sc: Dictionary) -> void:
 		if x > -2 and x < span_x + 2 and z > -2 and z < span_z + 2:
 			continue
 		var kind: String = deco[rng.randi() % deco.size()]
-		var prop := TDModels.build_prop(kind, rng)
-		prop.position = Vector3(x, 0, z)
-		world.add_child(prop)
+		add_scenery(kind, Vector3(x, 0, z))
 		placed += 1
+
+func build_grass(sc: Dictionary) -> void:
+	if sc["id"] == "ciudad":
+		return
+	var transforms: Array = []
+	for r in range(H):
+		for c in range(W):
+			if get_tile(c, r) != "." or rng.randf() > 0.6:
+				continue
+			var center := cell_pos(c, r)
+			for i in range(3):
+				var scale_ := rng.randf_range(0.7, 1.25)
+				var origin := center + Vector3(rng.randf_range(-0.85, 0.85), 0.275 * scale_, rng.randf_range(-0.85, 0.85))
+				var basis := Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3.ONE * scale_)
+				transforms.append(Transform3D(basis, origin))
+	if transforms.is_empty():
+		return
+	var blade := QuadMesh.new()
+	blade.size = Vector2(0.16, 0.55)
+	var grass_mat := ShaderMaterial.new()
+	grass_mat.shader = GRASS_SHADER
+	var color := Color(sc["ground"]).darkened(0.2)
+	if sc["id"] == "desierto":
+		color = Color("#aa924d")
+	grass_mat.set_shader_parameter("grass_color", color)
+	blade.material = grass_mat
+	var multi := MultiMesh.new()
+	multi.transform_format = MultiMesh.TRANSFORM_3D
+	multi.mesh = blade
+	multi.instance_count = transforms.size()
+	for i in range(transforms.size()):
+		multi.set_instance_transform(i, transforms[i])
+	var grass := MultiMeshInstance3D.new()
+	grass.name = "HierbaConViento"
+	grass.multimesh = multi
+	grass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(grass)
+
+func update_wind(delta: float) -> void:
+	wind_time += delta
+	var living: Array = []
+	for item in wind_props:
+		var prop: Node3D = item["node"]
+		if not is_instance_valid(prop) or prop.is_queued_for_deletion():
+			continue
+		var original: Vector3 = item["rotation"]
+		var phase: float = item["phase"]
+		prop.rotation.x = original.x + sin(wind_time * 1.0 + phase) * 0.018
+		prop.rotation.z = original.z + sin(wind_time * 1.25 + phase) * 0.028
+		living.append(item)
+	wind_props = living
 
 # ====================== Oleadas ======================
 func on_start_wave() -> void:
@@ -763,17 +899,22 @@ func spawn_enemy(type: String, boss: bool) -> void:
 	var pos := spawn_pos
 	pos.y = AIR_Y if air else 0.0
 	node.position = pos
+	var direction := base_pos - spawn_pos
+	if not air and path_pts.size() > 1:
+		direction = (path_pts[1] as Vector3) - (path_pts[0] as Vector3)
+	if direction.length_squared() > 0.0001:
+		node.rotation.y = atan2(-direction.x, -direction.z)
 	world.add_child(node)
 	var bar := make_bar(boss)
 	world.add_child(bar)
 	var e := {
 		"type": type, "node": node, "bar": bar, "air": air, "boss": boss,
 		"hp": hp, "maxhp": hp, "armor": float(info["armor"]),
-		"speed": float(info["speed"]) * (0.8 if boss else 1.0),
+		"speed": float(info["speed"]) * rng.randf_range(0.94, 1.06) * (0.9 if boss else 1.0),
 		"dmg": 15 if boss else int(info["dmg"]),
 		"reward": 150 if boss else int(info["reward"]),
-		"d": 0.0, "pos": pos, "off": Vector3(rng.randf_range(-0.55, 0.55), 0, rng.randf_range(-0.55, 0.55)),
-		"slow": 0.0, "dead": false, "t": rng.randf() * 6.0, "heading": 0.0,
+		"d": 0.0, "pos": pos, "lane": rng.randf_range(-0.28, 0.28),
+		"slow": 0.0, "dead": false, "t": rng.randf() * 6.0, "gait": rng.randf() * TAU,
 	}
 	enemies.append(e)
 
@@ -810,6 +951,8 @@ func make_bar(boss: bool) -> Node3D:
 
 func enemy_pos_on_path(d: float) -> Vector3:
 	var n := path_pts.size()
+	if n == 0:
+		return spawn_pos
 	if d <= 0.0 or n == 1:
 		return path_pts[0]
 	for i in range(n - 1):
@@ -833,10 +976,11 @@ func update_enemies(dt: float) -> void:
 		var step: float = float(e["speed"]) * slow * dt
 		var d: float = float(e["d"]) + step
 		e["d"] = d
+		e["gait"] = float(e["gait"]) + step
 		var air: bool = e["air"]
 		var node: Node3D = e["node"]
 		var pos := Vector3.ZERO
-		var heading := 0.0
+		var direction := Vector3.ZERO
 		if air:
 			if d >= air_total - 1.5:
 				reach_base(e)
@@ -844,41 +988,53 @@ func update_enemies(dt: float) -> void:
 			var k := clampf(d / maxf(0.001, air_total), 0.0, 1.0)
 			pos = spawn_pos.lerp(base_pos, k)
 			pos.y = AIR_Y + sin(float(e["t"]) * 3.0) * 0.15
-			var dir := base_pos - spawn_pos
-			heading = atan2(-dir.x, -dir.z)
+			direction = (base_pos - spawn_pos).normalized()
 		else:
 			if d >= path_total:
 				reach_base(e)
 				continue
-			var off: Vector3 = e["off"]
-			var k_off := clampf((path_total - d) / TDData.TILE, 0.0, 1.0)
-			pos = enemy_pos_on_path(d) + off * k_off
-			var ahead := enemy_pos_on_path(minf(d + 0.3, path_total)) + off * k_off
-			var dd := ahead - pos
-			if dd.length() > 0.001:
-				heading = atan2(-dd.x, -dd.z)
+			# La tangente anticipa el giro de la ruta redondeada. El pequeño
+			# desplazamiento lateral sigue la ruta en vez de cortar las curvas.
+			var ahead := enemy_pos_on_path(minf(d + 0.32, path_total))
+			var behind := enemy_pos_on_path(maxf(d - 0.18, 0.0))
+			direction = (ahead - behind).normalized()
+			var side := Vector3(-direction.z, 0, direction.x)
+			var fade := minf(clampf(d / TDData.TILE, 0.0, 1.0), clampf((path_total - d) / TDData.TILE, 0.0, 1.0))
+			pos = enemy_pos_on_path(d) + side * float(e["lane"]) * fade
 		e["pos"] = pos
 		node.position = pos
-		var cur: float = node.rotation.y
-		node.rotation.y = lerp_angle(cur, heading, minf(1.0, dt * 10.0))
+		if direction.length_squared() > 0.0001:
+			var heading := atan2(-direction.x, -direction.z)
+			node.rotation.y = lerp_angle(node.rotation.y, heading, 1.0 - exp(-dt * 12.0))
 		animate_enemy(e, dt)
 
 func animate_enemy(e: Dictionary, dt: float) -> void:
 	var node: Node3D = e["node"]
 	var t: float = e["t"]
+	var gait: float = e["gait"]
 	var type: String = e["type"]
 	if node.has_meta("body"):
 		var body: Node3D = node.get_meta("body")
-		if not e["air"] and type != "spider":
-			body.position.y = absf(sin(t * 10.0)) * 0.08
+		if e["air"]:
+			body.rotation.z = sin(t * 2.0) * 0.045
+			body.rotation.x = sin(t * 1.4) * 0.025
+		elif type in ["soldier", "shield", "spider"]:
+			# Los GLB originales son mallas sin esqueleto: se anima el cuerpo
+			# completo sin inventar huesos ni sustituir el modelo del autor.
+			body.position.y = absf(sin(gait * 3.0)) * 0.065
+			body.rotation.z = sin(gait * 3.0) * 0.055
+			body.rotation.x = sin(gait * 6.0) * 0.025
+		else:
+			body.position.y = absf(sin(gait * 2.0)) * 0.025
+			body.rotation.z = sin(gait * 1.7) * 0.018
 	if node.has_meta("legs"):
 		var legs: Array = node.get_meta("legs")
 		for i in range(legs.size()):
 			var lg: Node3D = legs[i]
 			if type == "spider":
-				lg.rotation.y = sin(t * 14.0 + float(i) * 0.9) * 0.25
+				lg.rotation.y = sin(gait * 5.0 + float(i) * 0.9) * 0.25
 			else:
-				lg.rotation.x = sin(t * 9.0 + float(i) * PI) * 0.5
+				lg.rotation.x = sin(gait * 3.0 + float(i) * PI) * 0.5
 	if node.has_meta("rotors"):
 		var rotors: Array = node.get_meta("rotors")
 		for rt in rotors:
@@ -985,7 +1141,7 @@ func tower_stats(t: Dictionary) -> Dictionary:
 
 func find_target(p: Vector3, range_: float, ground: bool, air: bool) -> Variant:
 	var best: Variant = null
-	var best_d := -1.0
+	var best_remaining := INF
 	for e in enemies:
 		if e["dead"]:
 			continue
@@ -998,9 +1154,12 @@ func find_target(p: Vector3, range_: float, ground: bool, air: bool) -> Variant:
 		var dist := Vector2(ep.x - p.x, ep.z - p.z).length()
 		if dist > range_:
 			continue
-		var prog: float = e["d"]
-		if prog > best_d:
-			best_d = prog
+		# Una ruta aérea y una terrestre tienen longitudes diferentes: se
+		# prioriza la distancia restante hasta la base, no la recorrida.
+		var total := air_total if is_air else path_total
+		var remaining := total - float(e["d"])
+		if remaining < best_remaining:
+			best_remaining = remaining
 			best = e
 	return best
 
@@ -1009,9 +1168,9 @@ func update_towers(dt: float) -> void:
 		t["cd"] = float(t["cd"]) - dt
 		t["recoil"] = maxf(0.0, float(t["recoil"]) - dt * 6.0)
 		var turret: Node3D = t["turret"]
-		var base_y: float = turret.position.y
-		turret.position.z = float(t["recoil"]) * 0.18
-		turret.position.y = base_y
+		var origin: Vector3 = t["turret_origin"]
+		# Retroceso en la dirección real de la torre, no en un eje fijo del mapa.
+		turret.position = origin + turret.basis.z.normalized() * float(t["recoil"]) * 0.12
 		var st := tower_stats(t)
 		var target: Variant = find_target(t["pos"], st["range"], st["ground"], st["air"])
 		if target == null:
@@ -1027,7 +1186,7 @@ func update_towers(dt: float) -> void:
 
 func muzzle_pos(t: Dictionary) -> Vector3:
 	var turret: Node3D = t["turret"]
-	return turret.global_position + turret.global_transform.basis.z * -1.3 + Vector3(0, 0.2, 0)
+	return turret.global_position - turret.global_transform.basis.z.normalized() * 0.8 + Vector3(0, 1.1, 0)
 
 func fire(t: Dictionary, st: Dictionary, target: Dictionary) -> void:
 	var kind: String = t["type"]
@@ -1182,7 +1341,7 @@ func can_build(c: int, r: int) -> bool:
 func on_build(key: String) -> void:
 	if Engine.get_process_frames() == drag_release_frame:
 		return
-	if not in_game or over:
+	if not in_game or over or paused:
 		return
 	skill_mode = ""
 	build_type = "" if build_type == key else key
@@ -1201,16 +1360,21 @@ func place_tower(key: String, cell: Vector2i) -> void:
 		msg("Oro insuficiente")
 		return
 	gold -= cost
+	if cell_props.has(cell):
+		var prop: Node3D = cell_props[cell]
+		if is_instance_valid(prop):
+			prop.queue_free()
+		cell_props.erase(cell)
 	var pos := cell_pos(cell.x, cell.y)
 	var root := TDModels.build_tower(key, 1)
 	root.position = pos
-	var shadow_disc := TDModels.cyl(root, 1.6, 1.6, 0.02, make_mat("#05080d"), Vector3(0, 0.02, 0), Vector3.ZERO, 24)
 	root.scale = Vector3.ONE * 0.1
 	world.add_child(root)
 	var tw := root.create_tween()
 	tw.tween_property(root, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var t := {"type": key, "level": 1, "cell": cell, "pos": pos, "node": root, "turret": root.get_meta("turret"),
-		"cd": 0.4, "spent": cost, "recoil": 0.0}
+	var turret: Node3D = root.get_meta("turret")
+	var t := {"type": key, "level": 1, "cell": cell, "pos": pos, "node": root, "turret": turret,
+		"turret_origin": turret.position, "cd": 0.4, "spent": cost, "recoil": 0.0}
 	towers.append(t)
 	tower_at[cell] = t
 	TDFx.smoke(world, pos + Vector3(0, 0.3, 0), 12, Color(0.5, 0.5, 0.5, 0.6), 1.0)
@@ -1219,16 +1383,21 @@ func place_tower(key: String, cell: Vector2i) -> void:
 func rebuild_tower(t: Dictionary) -> void:
 	var old: Node3D = t["node"]
 	var pos: Vector3 = t["pos"]
+	var old_turret: Node3D = t["turret"]
+	var heading := old_turret.rotation.y
 	var root := TDModels.build_tower(t["type"], int(t["level"]))
 	root.position = pos
 	world.add_child(root)
 	if is_instance_valid(old):
 		old.queue_free()
+	var turret: Node3D = root.get_meta("turret")
+	turret.rotation.y = heading
 	t["node"] = root
-	t["turret"] = root.get_meta("turret")
+	t["turret"] = turret
+	t["turret_origin"] = turret.position
 
 func on_upgrade() -> void:
-	if selected == null or over:
+	if selected == null or over or paused:
 		return
 	var t: Dictionary = selected
 	if int(t["level"]) >= 3:
@@ -1246,7 +1415,7 @@ func on_upgrade() -> void:
 	TDFx.burst(world, t["pos"] + Vector3(0, 0.6, 0), Color(1, 0.8, 0.4), 30, 4.0, 0.3, 0.6, true, -2.0)
 
 func on_sell() -> void:
-	if selected == null or over:
+	if selected == null or over or paused:
 		return
 	var t: Dictionary = selected
 	var refund := int(floor(int(t["spent"]) * 0.6))
@@ -1289,12 +1458,12 @@ func update_towers_info() -> void:
 	btn_up.disabled = int(t["level"]) >= 3
 	btn_sell.disabled = false
 	sel_ring.visible = true
-	sel_ring.position = Vector3(t["pos"].x, 0.05, t["pos"].z)
+	sel_ring.position = Vector3(t["pos"].x, 0.1, t["pos"].z)
 	sel_ring.scale = Vector3(st["range"], 1, st["range"])
 
 # ====================== Habilidades ======================
 func on_skill(skill: String) -> void:
-	if not in_game or over:
+	if not in_game or over or paused:
 		return
 	if float(skill_cd[skill]) > 0.0:
 		msg("Habilidad en enfriamiento (%ds)" % int(ceil(float(skill_cd[skill]))))
@@ -1346,7 +1515,7 @@ func cast_skill_at(p: Vector3) -> void:
 			var a := rng.randf() * TAU
 			var d := rng.randf() * 2.4
 			strikes.append({"t": float(i) * 0.16, "aim": Vector3(p.x + cos(a) * d, 0, p.z + sin(a) * d), "dmg": 140.0, "splash": 2.6})
-		msg("Bombardeo de misiles")
+		msg("Descarga de rayos")
 	elif skill == "radar":
 		skill_cd["radar"] = TDData.SKILL_CD["radar"]
 		TDFx.ring(world, Vector3(p.x, 0.12, p.z), 7.5, Color(0.3, 0.85, 1.0), 0.8)
@@ -1446,11 +1615,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			cancel_modes()
 		elif mb.button_index == MOUSE_BUTTON_LEFT:
 			on_world_click(mb.position)
-	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if build_type != "" or skill_mode != "" or selected != null:
-			cancel_modes()
-		else:
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE:
+			if build_type != "" or skill_mode != "" or selected != null:
+				cancel_modes()
+			else:
+				toggle_pause()
+		elif event.keycode == KEY_P:
 			toggle_pause()
+		elif event.keycode == KEY_SPACE:
+			on_start_wave()
+		elif event.keycode >= KEY_1 and event.keycode <= KEY_5 and not paused:
+			on_build(TDData.TOWER_ORDER[int(event.keycode - KEY_1)])
 
 func on_quality() -> void:
 	quality = (quality + 1) % 3
@@ -1503,6 +1679,7 @@ func layout_ui() -> void:
 	info_box.position = Vector2(vp.x - 300.0, 72.0)
 
 func _process(delta: float) -> void:
+	update_wind(delta)
 	# Camara: desplazamiento por bordes de pantalla, zoom con rueda y arrastre con boton central
 	var vp_size := get_viewport().get_visible_rect().size
 	var mp0 := get_viewport().get_mouse_position()
@@ -1552,7 +1729,7 @@ func _process(delta: float) -> void:
 			var st_range: float = TDData.TOWERS[build_type]["range"]
 			var cp := cell_pos(cell.x, cell.y)
 			ghost_ring.visible = true
-			ghost_ring.position = Vector3(cp.x, 0.05, cp.z)
+			ghost_ring.position = Vector3(cp.x, 0.1, cp.z)
 			ghost_ring.scale = Vector3(st_range, 1, st_range)
 		else:
 			ghost_ring.visible = false
