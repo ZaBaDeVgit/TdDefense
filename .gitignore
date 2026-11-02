@@ -1,0 +1,4 @@
+.DS_Store
+/godot/.godot/
+/godot/export/
+*.log
