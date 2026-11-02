@@ -6,14 +6,16 @@ static var _mats: Dictionary = {}
 
 # Modelos glTF (CC0, ver assets/models/CREDITOS_MODELOS.txt): nombre, tamano objetivo
 const GLB_ENEMIES := {
-	"soldier": ["soldier", 1.8], "shield": ["soldier", 1.8], "spider": ["robot_walker", 1.6],
-	"jeep": ["suv", 2.2], "tank": ["tank", 3.0], "truck": ["truck_flat", 3.0], "drone": ["robot_flyer", 1.2],
+	"soldier": ["Enemigo1", 1.8], "shield": ["Enemigo2", 1.8], "spider": ["Enemigo3", 1.6],
+	"jeep": ["Enemigo4", 2.2], "tank": ["EnemigoBoss", 3.0], "truck": ["Kuro", 3.0], "drone": ["EnemigoVolador", 1.2],
 }
-const GLB_PROPS := {
-	"pine": ["tree_pine", 2.8], "palm": ["tree_palm", 2.6], "broadleaf": ["tree_oak", 2.4],
-	"rock": ["rock_large", 1.1], "snowrock": ["rock_large", 1.3], "cactus": ["cactus", 1.6],
-	"skyscraper": ["skyscraper_a", 4.5], "car": ["sedan", 1.5], "barracks": ["tent", 1.6],
+# Torres: mg, missile, laser, aa, tesla
+const GLB_TOWERS := {
+	"mg": ["TorreDisparos", 2.4], "missile": ["TorreFlecha", 2.6], "laser": ["TorreMagia", 2.6],
+	"aa": ["TorreAnimals", 2.4], "tesla": ["TorreMina", 2.8],
 }
+# Props sin modelo en assets (arboles, rocas...) usan la version procedural.
+const GLB_PROPS := {}
 # Giro extra si los modelos miran hacia otro lado (en radianes). Ajustar si se ven de espaldas.
 const GLB_YAW := 0.0
 
@@ -233,6 +235,13 @@ static func build_tower(type: String, level: int) -> Node3D:
 	box(root, Vector3(2.4, 0.45, 2.4), mat("dark"), Vector3(0, 0.22, 0))
 	cyl(root, 1.3, 1.45, 0.45, mat("dark"), Vector3(0, 0.22, 0), Vector3.ZERO, 8)
 	torus(root, 1.18, 1.28, glow("#ff8a1a", 1.5), Vector3(0, 0.47, 0), Vector3(PI / 2, 0, 0))
+	if GLB_TOWERS.has(type):
+		var tm := load_model(String(GLB_TOWERS[type][0]), float(GLB_TOWERS[type][1]))
+		if tm != null:
+			tm.position.y = 0.5
+			root.add_child(tm)
+			root.set_meta("turret", tm)
+			return root
 	for i in range(level):
 		var a := -PI / 2 + float(i) * (PI * 2.0 / 3.0)
 		sph(root, 0.1, glow("#ffd166", 3.0), Vector3(cos(a) * 1.0, 0.55, sin(a) * 1.0))
