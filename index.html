@@ -10,6 +10,7 @@
 <body>
   <canvas id="game"></canvas>
   <div id="fx"></div>
+  <div id="fps" class="fpsBox"></div>
   <div id="screenFlash"></div>
 
   <!-- ============ MENU PRINCIPAL ============ -->
@@ -135,8 +136,9 @@
     <div class="panel settingsPanel">
       <div class="panelTitle">AJUSTES</div>
       <label class="setRow"><span>Sonido</span><input type="checkbox" id="setSound" /></label>
-      <label class="setRow"><span>Calidad gráfica (sombras y brillo)</span><select id="setQuality"><option value="high">Alta</option><option value="low">Baja</option></select></label>
+      <label class="setRow"><span>Calidad gráfica</span><select id="setQuality"><option value="high">Alta (sombras + brillo)</option><option value="medium">Media (recomendada)</option><option value="low">Baja (máximo rendimiento)</option></select></label>
       <label class="setRow"><span>Mostrar rangos de torres</span><input type="checkbox" id="setRanges" /></label>
+      <label class="setRow"><span>Mostrar FPS y estadísticas</span><input type="checkbox" id="setFps" /></label>
       <label class="setRow"><span>Pantalla completa</span><button class="btn small" id="setFull">Activar</button></label>
       <div class="row end"><button class="btn" id="btnSettingsClose">Cerrar</button></div>
     </div>

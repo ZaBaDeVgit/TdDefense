@@ -15,11 +15,22 @@ const $ = (id) => document.getElementById(id);
 const canvas = $('game');
 
 // ---------- Renderer / escena / camara ----------
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Presets de calidad: las sombras y el bloom son lo mas caro; por defecto van apagados.
+const QUAL = {
+  high: { shadows: true, bloom: true, maxPR: 2, shadowSize: 1024 },
+  medium: { shadows: false, bloom: false, maxPR: 1.25 },
+  low: { shadows: false, bloom: false, maxPR: 1 },
+};
+let quality = localStorage.getItem('td_quality') || 'medium';
+if (!QUAL[quality]) quality = 'medium';
+let prTarget = Math.min(window.devicePixelRatio, QUAL[quality].maxPR);
+let pr = prTarget;
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(pr);
 renderer.setSize(window.innerWidth, window.innerHeight, false);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = false;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -41,8 +52,10 @@ controls.listenToKeyEvents(window);
 controls.target.set(0, 0, 0);
 
 const composer = new EffectComposer(renderer);
+composer.setPixelRatio(pr);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.45, 0.5, 0.85);
+bloom.enabled = QUAL[quality].bloom;
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -75,8 +88,8 @@ const ENEMY_KEYS = ['soldier', 'shield', 'spider', 'jeep', 'tank', 'truck', 'dro
 
 function buildUI() {
   // Escaparate del menu
-  $('towerShowcase').innerHTML = TOWER_KEYS.map((k) =>
-    `<div class="tCard"><img src="${towerIcons[k]}" alt=""><span class="tName">${TOWER_INFO[k].name}</span></div>`).join('');
+  $('towerShowcase').innerHTML = '<div class="showTitle">ARSENAL</div><div class="showRow">' + TOWER_KEYS.map((k) =>
+    `<div class="tCard"><img src="${towerIcons[k]}" alt=""><span class="tName">${TOWER_INFO[k].name}</span></div>`).join('') + '</div>';
 
   // Barra de torres
   $('towerBar').innerHTML = TOWER_KEYS.map((k, i) =>
@@ -120,6 +133,7 @@ function showMenu() {
   $('hud').classList.remove('paused');
   $('endOverlay').classList.remove('show');
   game.loadScenario(SCENARIOS[0], { demo: true });
+  buildMinimapBase();
   controls.target.set(0, 0, 0);
   camera.position.copy(CAM_MENU);
   controls.autoRotate = true;
@@ -132,6 +146,7 @@ function startScenario(sc) {
   mode = 'play';
   controls.autoRotate = false;
   game.loadScenario(sc);
+  buildMinimapBase();
   game.showRanges = $('setRanges').checked;
   camera.position.copy(CAM_PLAY).add(new THREE.Vector3(-4, 0, 0));
   controls.target.set(-4, 0, 0);
@@ -174,39 +189,47 @@ function toast(text) {
 
 // ---------- Minimapa ----------
 const mm = $('minimap').getContext('2d');
+const mmBase = document.createElement('canvas');
+mmBase.width = 240; mmBase.height = 160;
 const MM_COL = { '.': '#3d6b34', P: '#6b6e78', S: '#ff3b30', B: '#2fb8ff', '#': '#4a4f58', '~': '#1f6fa8' };
+function buildMinimapBase() {
+  if (!game.L) return;
+  const L = game.L, ctx = mmBase.getContext('2d');
+  const cw = mmBase.width / L.W, ch = mmBase.height / L.H;
+  ctx.fillStyle = '#0a1322';
+  ctx.fillRect(0, 0, mmBase.width, mmBase.height);
+  for (let r = 0; r < L.H; r++) for (let c = 0; c < L.W; c++) {
+    ctx.fillStyle = MM_COL[L.tiles[r][c]] || '#3d6b34';
+    ctx.fillRect(c * cw, r * ch, cw + 0.5, ch + 0.5);
+  }
+}
 function drawMinimap() {
   if (!game.L) return;
   const L = game.L, cvs = $('minimap');
   const cw = cvs.width / L.W, ch = cvs.height / L.H;
-  mm.fillStyle = '#0a1322';
-  mm.fillRect(0, 0, cvs.width, cvs.height);
-  for (let r = 0; r < L.H; r++) for (let c = 0; c < L.W; c++) {
-    mm.fillStyle = MM_COL[L.tiles[r][c]] || '#3d6b34';
-    mm.fillRect(c * cw, r * ch, cw + 0.5, ch + 0.5);
-  }
+  mm.drawImage(mmBase, 0, 0);
   for (const t of game.towers) {
     mm.fillStyle = '#ffb347';
     mm.fillRect(t.c * cw + cw * 0.2, t.r * ch + ch * 0.2, cw * 0.6, ch * 0.6);
   }
   for (const e of game.enemies) {
     if (e.dead) continue;
-    const p = game.worldToTile(e.pos.x, e.pos.z);
     const x = ((e.pos.x - game.ox) / TILE) * cw, y = ((e.pos.z - game.oz) / TILE) * ch;
     mm.fillStyle = e.air ? '#ffffff' : '#ff4a3a';
     mm.beginPath();
     mm.arc(x, y, e.boss ? 4 : 2.2, 0, Math.PI * 2);
     mm.fill();
-    void p;
   }
 }
 
 // ---------- HUD ----------
-let hudTimer = 0;
 function refreshMiniScen() {
   for (const el of document.querySelectorAll('.miniCard')) el.classList.toggle('current', +el.dataset.scen === SCENARIOS.indexOf(currentScenario));
 }
 function setText(id, v) { const el = $(id); if (el.textContent !== String(v)) el.textContent = v; }
+const btnTowers = [...document.querySelectorAll('.towerBtn')];
+const btnSkills = [...document.querySelectorAll('.skillBtn')];
+const cellEnemies = [...document.querySelectorAll('.enemyCell')];
 function updateHUD() {
   setText('lives', Math.max(0, Math.round(game.lives)));
   setText('gold', game.gold);
@@ -220,20 +243,21 @@ function updateHUD() {
   $('btnSell').classList.toggle('active', game.sellMode);
   $('btnResume').innerHTML = game.paused ? '<span>▶</span> Reanudar' : '<span>❚❚</span> Pausar';
 
-  for (const b of document.querySelectorAll('.towerBtn')) {
+  for (const b of btnTowers) {
     const k = b.dataset.tower;
     b.classList.toggle('active', game.buildType === k);
     b.classList.toggle('unaffordable', game.gold < TOWER_INFO[k].cost);
   }
   const alive = new Set(game.enemies.filter((e) => !e.dead).map((e) => e.type));
-  for (const c of document.querySelectorAll('.enemyCell')) c.classList.toggle('active', alive.has(c.dataset.enemy));
+  for (const c of cellEnemies) c.classList.toggle('active', alive.has(c.dataset.enemy));
 
-  for (const b of document.querySelectorAll('.skillBtn')) {
+  for (const b of btnSkills) {
     const id = b.dataset.skill;
     const cd = game.skillCd[id];
     b.classList.toggle('cooling', cd > 0);
     b.classList.toggle('active', game.skillMode === id);
-    b.querySelector('.cd').textContent = cd > 0 ? Math.ceil(cd) + 's' : '';
+    const txt = cd > 0 ? Math.ceil(cd) + 's' : '';
+    if (b._cd !== txt) { b._cd = txt; b.querySelector('.cd').textContent = txt; }
   }
 
   const sel = game.selected;
@@ -361,19 +385,55 @@ $('btnHelpClose').addEventListener('click', () => closeModal('helpModal'));
 $('setSound').addEventListener('change', (e) => setSound(e.target.checked));
 $('setRanges').addEventListener('change', (e) => { game.showRanges = e.target.checked; game.updateRangeRings(); });
 $('setQuality').addEventListener('change', (e) => applyQuality(e.target.value));
+$('setFps').addEventListener('change', (e) => { localStorage.setItem('td_fps', e.target.checked ? '1' : '0'); });
 $('setFull').addEventListener('click', () => {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.();
 });
 
+function applyPR() {
+  renderer.setPixelRatio(pr);
+  composer.setPixelRatio(pr);
+  resize();
+}
 function applyQuality(q) {
+  if (!QUAL[q]) q = 'medium';
+  quality = q;
   localStorage.setItem('td_quality', q);
   $('setQuality').value = q;
-  const high = q === 'high';
-  bloom.enabled = high;
-  game.sun.castShadow = high;
-  renderer.shadowMap.enabled = high;
-  game.setQuality(q);
+  const P = QUAL[q];
+  prTarget = Math.min(window.devicePixelRatio, P.maxPR);
+  pr = prTarget;
+  bloom.enabled = P.bloom;
+  renderer.shadowMap.enabled = P.shadows;
+  game.sun.castShadow = P.shadows;
+  game.sun.shadow.mapSize.set(P.shadowSize || 512, P.shadowSize || 512);
+  if (game.sun.shadow.map) { game.sun.shadow.map.dispose(); game.sun.shadow.map = null; }
   scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+  applyPR();
+}
+
+// Escalado adaptativo: si el juego va por debajo de ~60 FPS baja la resolucion interna;
+// si sobra rendimiento, la sube de nuevo hasta el objetivo de calidad.
+let adaptAcc = 0, adaptN = 0;
+function adaptResolution(dt) {
+  adaptAcc += dt; adaptN++;
+  if (adaptN < 90) return;
+  const avg = adaptAcc / adaptN;
+  adaptAcc = 0; adaptN = 0;
+  if (avg > 0.0185 && pr > 0.5) { pr = Math.max(0.5, +(pr - 0.125).toFixed(3)); applyPR(); }
+  else if (avg < 0.0145 && pr < prTarget) { pr = Math.min(prTarget, +(pr + 0.125).toFixed(3)); applyPR(); }
+}
+const fpsEl = $('fps');
+let fpsAcc = 0, fpsN = 0;
+function updateFps(dt) {
+  if (!$('setFps').checked) { fpsEl.style.display = 'none'; return; }
+  fpsEl.style.display = 'block';
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc >= 0.5) {
+    const fps = Math.round(fpsN / fpsAcc);
+    fpsEl.textContent = `${fps} FPS · ${Math.round(pr * 100)}% res · ${renderer.info.render.calls} draw`;
+    fpsAcc = 0; fpsN = 0;
+  }
 }
 
 window.addEventListener('keydown', (ev) => {
@@ -411,10 +471,16 @@ window.addEventListener('resize', resize);
 
 // ---------- Bucle principal ----------
 let last = performance.now();
-let mmTimer = 0;
+let lastDraw = 0;
+let hudTimer = 0, mmTimer = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  requestAnimationFrame(frame);
+  // En el menu basta con 30 FPS (fondo animado); en partida, cada fotograma.
+  if (mode === 'menu' && now - lastDraw < 33) return;
+  const dt = Math.min(0.05, (now - (lastDraw || now)) / 1000);
+  lastDraw = now;
   last = now;
+
   if (mode === 'play') {
     if (!game.paused && !game.over) game.update(dt * game.speed);
     else game.update(0);
@@ -425,22 +491,22 @@ function frame(now) {
   controls.update();
   if (bloom.enabled) composer.render(); else renderer.render(scene, camera);
 
+  if (mode === 'play') adaptResolution(dt);
+  updateFps(dt);
   hudTimer += dt;
-  if (hudTimer > 0.08 && mode === 'play') { hudTimer = 0; updateHUD(); }
+  if (hudTimer > 0.15 && mode === 'play') { hudTimer = 0; updateHUD(); }
   mmTimer += dt;
-  if (mmTimer > 0.15 && mode === 'play') { mmTimer = 0; drawMinimap(); }
-  requestAnimationFrame(frame);
+  if (mmTimer > 0.2 && mode === 'play') { mmTimer = 0; drawMinimap(); }
 }
 
 // ---------- Arranque ----------
 buildUI();
-const savedQ = localStorage.getItem('td_quality') || 'high';
 $('setSound').checked = soundOn();
-$('setQuality').value = savedQ;
-applyQuality(savedQ);
+$('setFps').checked = localStorage.getItem('td_fps') === '1';
 $('setRanges').checked = false;
+applyQuality(quality);
 showMenu();
 resize();
-requestAnimationFrame((t) => { last = t; frame(t); });
+requestAnimationFrame((t) => { lastDraw = t; frame(t); });
 setTimeout(() => $('loading').classList.add('hide'), 250);
-window.__td = { game, startScenario, showMenu, SCENARIOS }; // depuracion
+window.__td = { game, startScenario, showMenu, SCENARIOS, renderer, getPR: () => pr }; // depuracion

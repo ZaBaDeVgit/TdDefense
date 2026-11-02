@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { parseScenario } from './maps.js';
 import { createTower, createEnemy, createProp, createHQ, createMissile, createShieldBubble, TOWER_INFO, ENEMY_INFO, glow, mat } from './models.js';
 import { sfx } from './audio.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export const TILE = 2;
 export const MAX_WAVE = 15;
@@ -186,6 +187,7 @@ export class Game {
     g.computeVertexNormals();
     const terrain = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 }));
     terrain.receiveShadow = true;
+    terrain.userData.keep = true;
     this.world.add(terrain);
 
     // Suelo exterior
@@ -193,6 +195,7 @@ export class Game {
     outer.rotation.x = -Math.PI / 2;
     outer.position.y = -0.2;
     outer.receiveShadow = true;
+    outer.userData.keep = true;
     this.world.add(outer);
 
     // Agua
@@ -237,8 +240,16 @@ export class Game {
       if (!kind) continue;
       const prop = createProp(kind, rnd);
       prop.position.set(p.x + (rnd() - 0.5) * 0.6, 0, p.z + (rnd() - 0.5) * 0.6);
-      this.world.add(prop);
-      this.tileProps.set(c + ',' + r, prop);
+      if (ch === '.') {
+        // Casilla libre: se fusiona en un grupo propio (una torre lo reemplaza entero)
+        const holder = new THREE.Group();
+        this.world.add(holder);
+        holder.add(prop);
+        this.bakeSubtree(holder, holder);
+        this.tileProps.set(c + ',' + r, holder);
+      } else {
+        this.world.add(prop);
+      }
     }
 
     // Base (cuartel general)
@@ -249,6 +260,7 @@ export class Game {
     hq.rotation.y = -Math.PI / 2;
     this.world.add(hq);
     this.hq = hq;
+    if (hq.userData.core) hq.userData.core.userData.dynamic = true;
     this.basePos = new THREE.Vector3(bp.x, 0, bp.z);
     this.bubble = createShieldBubble();
     this.bubble.position.copy(this.basePos).setY(1.5);
@@ -267,6 +279,7 @@ export class Game {
     sring.position.set(sp.x, 0.08, sp.z);
     sring.visible = true;
     this.world.add(sring);
+    sring.userData.dynamic = true;
     this.spawnRing = sring;
 
     // Ruta en mundo
@@ -275,7 +288,39 @@ export class Game {
 
     // Ocupacion de torres
     this.towerAt = new Map();
+    this.bakeStatic();
   }
+
+  // Fusiona la geometria estatica de un subarbol en pocas mallas (una por material).
+  // Las mallas resultantes llevan userData.keep para que no se fusionen de nuevo.
+  bakeSubtree(root, target) {
+    root.updateMatrixWorld(true);
+    const list = [];
+    root.traverse((o) => { if (o.isMesh && !o.userData.dynamic && !o.userData.keep) list.push(o); });
+    const buckets = new Map();
+    for (const o of list) {
+      const g = o.geometry.clone();
+      g.applyMatrix4(o.matrixWorld);
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+      if (!g.attributes.normal) g.computeVertexNormals();
+      const ng = g.index ? g.toNonIndexed() : g;
+      const key = o.material.uuid;
+      if (!buckets.has(key)) buckets.set(key, { mat: o.material, geos: [] });
+      buckets.get(key).geos.push(ng);
+    }
+    for (const o of list) o.parent.remove(o);
+    for (const { mat: m, geos } of buckets.values()) {
+      const merged = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+      if (!merged) continue;
+      const mesh = new THREE.Mesh(merged, m);
+      mesh.receiveShadow = false;
+      mesh.castShadow = false;
+      mesh.userData.keep = true;
+      target.add(mesh);
+    }
+  }
+
+  bakeStatic() { this.bakeSubtree(this.world, this.world); }
 
   makeRing(radius, color, opacity = 0.7) {
     const m = new THREE.Mesh(new THREE.RingGeometry(radius * 0.97, radius, 64),
@@ -446,9 +491,18 @@ export class Game {
   }
 
   makeBar(boss) {
+    if (!this.barRes) {
+      this.barRes = {
+        geo: new THREE.PlaneGeometry(1.2, 0.14),
+        bgMat: new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.7, depthWrite: false }),
+        fgNormal: new THREE.MeshBasicMaterial({ color: 0x6dff6a, depthWrite: false }),
+        fgBoss: new THREE.MeshBasicMaterial({ color: 0xff3b30, depthWrite: false }),
+      };
+    }
+    const r = this.barRes;
     const g = new THREE.Group();
-    const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.14), new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.7, depthWrite: false }));
-    const fg = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.14), new THREE.MeshBasicMaterial({ color: boss ? 0xff3b30 : 0x6dff6a, depthWrite: false }));
+    const bg = new THREE.Mesh(r.geo, r.bgMat);
+    const fg = new THREE.Mesh(r.geo, boss ? r.fgBoss : r.fgNormal);
     fg.position.z = 0.01;
     g.add(bg, fg);
     g.userData.fg = fg;
@@ -898,7 +952,6 @@ export class Game {
   }
 
   updateVisuals(dt) {
-    for (const w of this.waterMeshes) w.position.y = -0.12 + Math.sin(this.time * 1.5 + w.position.x) * 0.012;
     if (this.hq && this.hq.userData.core) {
       const core = this.hq.userData.core;
       core.scale.setScalar(1 + Math.sin(this.time * 2.5) * 0.08);
