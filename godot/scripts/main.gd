@@ -247,9 +247,9 @@ func build_hud() -> void:
 		bh.add_child(b)
 	var sep := VSeparator.new()
 	bh.add_child(sep)
-	skill_btns["misil"] = mk_button("Misiles", on_skill.bind("misil"), Vector2(112, 58), 14)
+	skill_btns["misil"] = mk_button("Rayo", on_skill.bind("misil"), Vector2(112, 58), 14)
 	skill_btns["radar"] = mk_button("Radar", on_skill.bind("radar"), Vector2(112, 58), 14)
-	skill_btns["nuke"] = mk_button("Nuclear", on_skill.bind("nuke"), Vector2(112, 58), 14)
+	skill_btns["nuke"] = mk_button("Bomba", on_skill.bind("nuke"), Vector2(112, 58), 14)
 	skill_btns["shield"] = mk_button("Escudo", on_skill.bind("shield"), Vector2(112, 58), 14)
 	skill_btns["heal"] = mk_button("Botiquín", on_skill.bind("heal"), Vector2(112, 58), 14)
 	for k in ["misil", "radar", "nuke", "shield", "heal"]:
@@ -333,7 +333,7 @@ func build_menu() -> void:
 Haz clic en una torre construida para mejorarla (hasta nivel 3) o venderla.
 Pulsa ▶ Oleada para empezar. Los enemigos siguen el camino hasta tu base.
 Cada enemigo abatido da oro. Si pierdes todas las vidas, la base cae.
-Habilidades: Misiles y Radar requieren un objetivo; Nuclear, Escudo y Botiquín son inmediatas.
+Habilidades: Rayo y Radar requieren un objetivo; Bomba, Escudo y Botiquín son inmediatas.
 
 Controles con ratón:
 · Arrastrar con el botón central: mover la cámara
@@ -1140,7 +1140,13 @@ func update_strikes(dt: float) -> void:
 		s["t"] = float(s["t"]) - dt
 		if float(s["t"]) <= 0.0:
 			var aim: Vector3 = s["aim"]
-			TDFx.explosion(world, aim, 1.0)
+			# Rayo: columna de luz desde el cielo + destello y chispas
+			var top := aim + Vector3(rng.randf_range(-0.8, 0.8), 14.0, rng.randf_range(-0.8, 0.8))
+			TDFx.beam(world, top, aim + Vector3(0, 0.3, 0), Color(0.75, 0.9, 1.0, 1.0), 0.18, 0.25)
+			TDFx.beam(world, top, aim + Vector3(0, 0.3, 0), Color(0.4, 0.7, 1.0, 0.6), 0.45, 0.25)
+			TDFx.flash(world, aim + Vector3(0, 0.4, 0), Color(0.8, 0.95, 1, 1), 2.0, 0.15)
+			TDFx.sparks(world, aim + Vector3(0, 0.3, 0), 16, Color(0.7, 0.9, 1.0), 6.0)
+			TDFx.explosion(world, aim, 0.7, Color(0.6, 0.8, 1.0))
 			area_damage(aim, float(s["splash"]), float(s["dmg"]), true, true)
 		else:
 			keep.append(s)
@@ -1310,8 +1316,14 @@ func on_skill(skill: String) -> void:
 		skill_cd["shield"] = TDData.SKILL_CD["shield"]
 		base_shield = 10.0
 		if shield_node == null or not is_instance_valid(shield_node):
-			shield_node = TDModels.sph(world, 3.2, TDModels.glow("#44c8ff", 0.8), base_pos + Vector3(0, 1.5, 0))
-			shield_node.material_override = bar_material(Color(0.3, 0.8, 1.0, 0.18))
+			var sm := TDModels.load_model("Escudo", 6.0)
+			if sm != null:
+				shield_node = sm
+				sm.position = base_pos + Vector3(0, 0.2, 0)
+				world.add_child(sm)
+			else:
+				shield_node = TDModels.sph(world, 3.2, TDModels.glow("#44c8ff", 0.8), base_pos + Vector3(0, 1.5, 0))
+				shield_node.material_override = bar_material(Color(0.3, 0.8, 1.0, 0.18))
 		msg("Escudo de base activo (10s)")
 	elif skill == "heal":
 		skill_cd["heal"] = TDData.SKILL_CD["heal"]
@@ -1586,7 +1598,7 @@ func update_hud() -> void:
 		var cost: int = TDData.TOWERS[key]["cost"]
 		b.disabled = gold < cost and build_type != key
 		b.modulate = Color(1.0, 0.9, 0.5) if build_type == key else Color(1, 1, 1)
-	var names := {"misil": "Misiles", "radar": "Radar", "nuke": "Nuclear", "shield": "Escudo", "heal": "Botiquín"}
+	var names := {"misil": "Rayo", "radar": "Radar", "nuke": "Bomba", "shield": "Escudo", "heal": "Botiquín"}
 	var cd_key := {"misil": "misil", "radar": "radar", "nuke": "nuke", "shield": "shield", "heal": "heal"}
 	for k in names.keys():
 		var b2: Button = skill_btns[k]
