@@ -4,6 +4,59 @@ extends RefCounted
 
 static var _mats: Dictionary = {}
 
+# Modelos glTF (CC0, ver assets/models/CREDITOS_MODELOS.txt): nombre, tamano objetivo
+const GLB_ENEMIES := {
+	"soldier": ["soldier", 1.8], "shield": ["soldier", 1.8], "spider": ["robot_walker", 1.6],
+	"jeep": ["suv", 2.2], "tank": ["tank", 3.0], "truck": ["truck_flat", 3.0], "drone": ["robot_flyer", 1.2],
+}
+const GLB_PROPS := {
+	"pine": ["tree_pine", 2.8], "palm": ["tree_palm", 2.6], "broadleaf": ["tree_oak", 2.4],
+	"rock": ["rock_large", 1.1], "snowrock": ["rock_large", 1.3], "cactus": ["cactus", 1.6],
+	"skyscraper": ["skyscraper_a", 4.5], "car": ["sedan", 1.5], "barracks": ["tent", 1.6],
+}
+# Giro extra si los modelos miran hacia otro lado (en radianes). Ajustar si se ven de espaldas.
+const GLB_YAW := 0.0
+
+# Carga un modelo .glb de assets/models y lo escala para que su lado mayor mida 'target'.
+# Devuelve null si no existe (entonces se usa el modelo procedural).
+static func load_model(model_name: String, target: float) -> Node3D:
+	var path := "res://assets/models/" + model_name + ".glb"
+	if not ResourceLoader.exists(path):
+		return null
+	var ps := load(path) as PackedScene
+	if ps == null:
+		return null
+	var inst := ps.instantiate() as Node3D
+	if inst == null:
+		return null
+	var boxes: Array = []
+	_collect_aabb(inst, Transform3D.IDENTITY, boxes)
+	if boxes.is_empty():
+		inst.queue_free()
+		return null
+	var bb: AABB = boxes[0]
+	for b in boxes:
+		bb = bb.merge(b)
+	var ext := maxf(bb.size.x, maxf(bb.size.y, bb.size.z))
+	if ext < 0.0001 or ext > 1000.0:
+		inst.queue_free()
+		return null
+	var c := Vector3(bb.position.x + bb.size.x / 2.0, bb.position.y, bb.position.z + bb.size.z / 2.0)
+	inst.position = -c
+	var holder := Node3D.new()
+	holder.add_child(inst)
+	holder.scale = Vector3.ONE * (target / ext)
+	holder.rotation.y = GLB_YAW
+	return holder
+
+static func _collect_aabb(node: Node, xf: Transform3D, acc: Array) -> void:
+	for child in node.get_children():
+		if child is Node3D:
+			var cxf: Transform3D = xf * (child as Node3D).transform
+			if child is MeshInstance3D and (child as MeshInstance3D).mesh != null:
+				acc.append(cxf * (child as MeshInstance3D).mesh.get_aabb())
+			_collect_aabb(child, cxf, acc)
+
 static func mat(key: String) -> StandardMaterial3D:
 	if _mats.has(key):
 		return _mats[key]
@@ -223,6 +276,16 @@ static func build_enemy(type: String) -> Node3D:
 	var root := Node3D.new()
 	var body := pivot(root)
 	root.set_meta("body", body)
+	if GLB_ENEMIES.has(type):
+		var spec: Array = GLB_ENEMIES[type]
+		var m := load_model(String(spec[0]), float(spec[1]))
+		if m != null:
+			body.add_child(m)
+			if type == "shield":
+				box(body, Vector3(0.7, 1.0, 0.1), mat("steel"), Vector3(0, 1.0, -0.35))
+			root.set_meta("legs", [])
+			root.set_meta("rotors", [])
+			return root
 	var legs: Array = []
 	var rotors: Array = []
 	match type:
@@ -312,6 +375,16 @@ static func build_enemy(type: String) -> Node3D:
 static func build_prop(kind: String, rng: RandomNumberGenerator) -> Node3D:
 	var root := Node3D.new()
 	var s := rng.randf_range(0.8, 1.25)
+	if GLB_PROPS.has(kind):
+		var spec: Array = GLB_PROPS[kind]
+		var target: float = float(spec[1])
+		if kind == "skyscraper":
+			target = rng.randf_range(3.5, 6.0)
+		var m := load_model(String(spec[0]), target)
+		if m != null:
+			m.scale = m.scale * s
+			m.rotation.y = rng.randf() * TAU
+			return m
 	match kind:
 		"pine":
 			cyl(root, 0.12, 0.14, 0.9, mat("wood"), Vector3(0, 0.45, 0))
