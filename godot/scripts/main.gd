@@ -665,14 +665,22 @@ func make_ring(color: Color) -> MeshInstance3D:
 	return mi
 
 func setup_environment(sc: Dictionary) -> void:
-	var env := Environment.new()
-	var sky := ProceduralSkyMaterial.new()
+	# Reutilizar el cielo al cambiar de mapa evita crear texturas de entorno
+	# adicionales cada vez que se reinicia una partida.
+	var env: Environment = env_node.environment
+	if env == null:
+		env = Environment.new()
+	var sky_res: Sky = env.sky
+	if sky_res == null:
+		sky_res = Sky.new()
+	var sky := sky_res.sky_material as ProceduralSkyMaterial
+	if sky == null:
+		sky = ProceduralSkyMaterial.new()
+		sky_res.sky_material = sky
 	sky.sky_top_color = Color(sc["sky_top"])
 	sky.sky_horizon_color = Color(sc["sky_bottom"])
 	sky.ground_horizon_color = Color(sc["sky_bottom"]).darkened(0.3)
 	sky.ground_bottom_color = Color(sc["ground"]).darkened(0.6)
-	var sky_res := Sky.new()
-	sky_res.sky_material = sky
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky_res
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
@@ -707,7 +715,7 @@ func terrain_material(color: Color, strength: float = 0.035) -> ShaderMaterial:
 
 func build_terrain(sc: Dictionary) -> void:
 	var base_col := Color(sc["ground"])
-	var variants := [terrain_material(base_col.darkened(0.12)), terrain_material(base_col.darkened(0.2)), terrain_material(base_col)]
+	var variants := [terrain_material(base_col.darkened(0.03)), terrain_material(base_col.darkened(0.06)), terrain_material(base_col)]
 	var road_mat := terrain_material(Color(sc["road"]), 0.006)
 	var water_mat := ShaderMaterial.new()
 	water_mat.shader = WATER_SHADER

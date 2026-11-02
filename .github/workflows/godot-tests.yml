@@ -51,6 +51,18 @@ jobs:
           fi
           set +e
           export LIBGL_ALWAYS_SOFTWARE=1 TD_VISUAL_IMAGE=/tmp/tddefense-visual.jpg
+          cat > godot/tests/_render_baseline.gd <<'EOF'
+          extends SceneTree
+          func _initialize() -> void:
+              call_deferred("run")
+          func run() -> void:
+              for i in range(10):
+                  await process_frame
+              quit(0)
+          EOF
+          timeout 30 xvfb-run -a -s '-screen 0 1600x900x24' /tmp/godot/Godot_v4.3-stable_linux.x86_64 --audio-driver Dummy --rendering-method gl_compatibility --path godot --script res://tests/_render_baseline.gd > /tmp/baseline.log 2>&1
+          baseline=$(grep -E '^(ERROR|SCRIPT ERROR):' /tmp/baseline.log | head -10 | tr '\n' '|')
+          echo "::notice::BASELINE: ${baseline:-sin errores}"
           timeout 180 xvfb-run -a -s '-screen 0 1600x900x24' /tmp/godot/Godot_v4.3-stable_linux.x86_64 --audio-driver Dummy --rendering-method gl_compatibility --resolution 1600x900 --path godot --script res://tests/visual_smoke.gd 2>&1 | tee /tmp/visual.log
           result=${PIPESTATUS[0]}
           if grep -Eq '^(SCRIPT ERROR|ERROR|FALLO):' /tmp/visual.log; then result=1; fi
