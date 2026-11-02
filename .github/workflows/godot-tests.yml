@@ -43,3 +43,26 @@ jobs:
             echo "::error::$log"
           fi
           exit "$result"
+      - name: Comprobar renderizado real
+        run: |
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb
+          fi
+          set +e
+          export LIBGL_ALWAYS_SOFTWARE=1 TD_VISUAL_IMAGE=/tmp/tddefense-visual.jpg
+          timeout 180 xvfb-run -a -s '-screen 0 1600x900x24' /tmp/godot/Godot_v4.3-stable_linux.x86_64 --audio-driver Dummy --rendering-method gl_compatibility --resolution 1600x900 --path godot --script res://tests/visual_smoke.gd 2>&1 | tee /tmp/visual.log
+          result=${PIPESTATUS[0]}
+          if grep -Eq '^(SCRIPT ERROR|ERROR|FALLO):' /tmp/visual.log; then result=1; fi
+          summary=$(grep 'VISUAL:' /tmp/visual.log | tail -1)
+          if [ -n "$summary" ]; then echo "::notice::$summary"; fi
+          if [ "$result" -ne 0 ]; then
+            log=$(grep -E '^(SCRIPT ERROR|ERROR:|FALLO:| +at:)' /tmp/visual.log | head -50)
+            log="${log//'%'/'%25'}"
+            log="${log//$'\n'/'%0A'}"
+            log="${log//$'\r'/'%0D'}"
+            echo "::error::$log"
+          elif [ -s /tmp/tddefense-visual.jpg ]; then
+            base64 -w0 /tmp/tddefense-visual.jpg | fold -w3000 | awk '{printf "::notice::TDIMG%03d:%s\n", NR, $0}'
+          fi
+          exit "$result"
