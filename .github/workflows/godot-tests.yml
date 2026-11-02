@@ -25,6 +25,16 @@ jobs:
           ! grep -E '^(SCRIPT ERROR|ERROR):' /tmp/import.log
       - name: Comprobar la partida
         run: |
-          set -o pipefail
+          set +e
           /tmp/godot/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/run_tests.gd 2>&1 | tee /tmp/tests.log
-          ! grep -E '^(SCRIPT ERROR|ERROR):' /tmp/tests.log
+          result=${PIPESTATUS[0]}
+          if grep -Eq '^(SCRIPT ERROR|ERROR):' /tmp/tests.log; then result=1; fi
+          if [ "$result" -ne 0 ]; then
+            # Publicar el diagnóstico también como anotación de la ejecución.
+            log=$(tail -n 100 /tmp/tests.log)
+            log="${log//'%'/'%25'}"
+            log="${log//$'\n'/'%0A'}"
+            log="${log//$'\r'/'%0D'}"
+            echo "::error::$log"
+          fi
+          exit "$result"
