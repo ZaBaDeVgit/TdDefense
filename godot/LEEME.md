@@ -24,7 +24,7 @@ Es la versión nueva del proyecto: se ejecuta directamente desde el editor de Go
 | Seleccionar / mejorar / vender | Clic sobre una torre construida → panel con **Mejorar** y **Vender** |
 | Cancelar | **Clic derecho** (o Esc) |
 | Iniciar oleada | Botón **▶ Oleada** |
-| Habilidades | Botones de la barra inferior (Misiles y Radar piden un objetivo con clic) |
+| Habilidades | Botones de la barra inferior (Rayo y Radar piden un objetivo con clic) |
 | Pausa / Menú | Botones **Pausa** y **Menú** de la barra superior (Esc también pausa) |
 | Calidad gráfica | Botón **Gráficos** (Baja / Media / Alta); el contador **FPS** está arriba a la derecha |
 | Mover cámara | Arrastrar con el **botón central**, o acercar el ratón a los bordes de la pantalla |
@@ -32,11 +32,13 @@ Es la versión nueva del proyecto: se ejecuta directamente desde el editor de Go
 
 ## 4. Contenido
 
-- 5 torres: Ametralladora ($100), Misiles ($150), Láser ($200), Antiaérea ($250), Eléctrica ($300). Mejoras hasta nivel 3.
+- 5 torres: Flechas ($100), Cañón de asedio ($150), Torre arcana ($200), Espectral ($250, anti-aéreo), Torre de rayos ($300). Mejoras hasta nivel 3.
 - Enemigos terrestres y aéreos (soldados, escudos, arañas, jeeps, tanques, camiones, drones, helicópteros) con jefes en las oleadas 5, 10 y 15.
 - 4 escenarios: Base Militar, Desierto, Montaña y Ciudad.
 - 15 oleadas por mapa, vida 100, oro inicial 850.
-- 5 habilidades: Misiles (bombardeo), Radar (ralentiza), Nuclear, Escudo de base (10 s) y Botiquín (+25 vida).
+- 5 habilidades: Rayo (impactos), Radar (ralentiza), Bomba (nuclear), Escudo de base (10 s) y Botiquín (+25 vida).
+- Suelo de fuego: las losetas del camino son solo visuales.
+- Modelos: godot/assets/models (GLB optimizados, ver CREDITOS_MODELOS.txt).
 
 Los datos de torres, enemigos, oleadas y mapas se han portado desde la versión web (`src/`), así que el equilibrio es el mismo.
 
