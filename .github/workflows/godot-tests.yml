@@ -28,10 +28,15 @@ jobs:
           set +e
           /tmp/godot/Godot_v4.3-stable_linux.x86_64 --headless --path godot --script res://tests/run_tests.gd 2>&1 | tee /tmp/tests.log
           result=${PIPESTATUS[0]}
-          if grep -Eq '^(SCRIPT ERROR|ERROR):' /tmp/tests.log; then result=1; fi
+          # El renderer dummy de Godot 4.3 emite este mensaje al liberar mallas;
+          # se comprueban todos los demás errores y el código de salida del test.
+          grep -v -e '^ERROR: Parameter "m" is null\.$' -e 'at: mesh_get_surface_count (servers/rendering/dummy/storage/mesh_storage.h:120)' /tmp/tests.log > /tmp/tests-clean.log
+          if grep -Eq '^(SCRIPT ERROR|ERROR):' /tmp/tests-clean.log; then result=1; fi
+          summary=$(grep 'Pruebas:' /tmp/tests-clean.log | tail -1)
+          if [ -n "$summary" ]; then echo "::notice::$summary"; fi
           if [ "$result" -ne 0 ]; then
             # Publicar el diagnóstico también como anotación de la ejecución.
-            log=$(tail -n 100 /tmp/tests.log)
+            log=$(grep -E '^(SCRIPT ERROR|ERROR:|FALLO:|Pruebas:| +at:)' /tmp/tests-clean.log | head -80)
             log="${log//'%'/'%25'}"
             log="${log//$'\n'/'%0A'}"
             log="${log//$'\r'/'%0D'}"
