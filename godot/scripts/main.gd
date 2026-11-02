@@ -633,8 +633,8 @@ func setup_environment(sc: Dictionary) -> void:
 	env.fog_density = 0.006
 	env.ssao_enabled = true
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.18
-	env.adjustment_contrast = 1.08
+	env.adjustment_saturation = 1.32
+	env.adjustment_contrast = 1.12
 	env.adjustment_brightness = 1.03
 	env_node.environment = env
 	apply_quality()

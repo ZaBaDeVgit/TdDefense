@@ -22,6 +22,7 @@ const GLB_YAW := 0.0
 static func load_model(model_name: String, target: float) -> Node3D:
 	var path := "res://assets/models/" + model_name + ".glb"
 	if not ResourceLoader.exists(path):
+		push_warning("Modelo no encontrado (se usa el procedural): " + path)
 		return null
 	var ps := load(path) as PackedScene
 	if ps == null:
