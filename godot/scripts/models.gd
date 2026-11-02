@@ -11,7 +11,7 @@ const GLB_ENEMIES := {
 }
 # Torres: mg, missile, laser, aa, tesla
 const GLB_TOWERS := {
-	"mg": ["TorreDisparos", 2.4], "missile": ["TorreFlecha", 2.6], "laser": ["TorreMagia", 2.6],
+	"mg": ["TorreFlecha", 2.4], "missile": ["TorreDisparos", 2.6], "laser": ["TorreMagia", 2.6],
 	"aa": ["TorreAnimals", 2.4], "tesla": ["TorreMina", 2.8],
 }
 # Props sin modelo en assets (arboles, rocas...) usan la version procedural.

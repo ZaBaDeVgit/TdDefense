@@ -568,6 +568,13 @@ func build_world(idx: int) -> void:
 	cam_orbit = 0.0
 	setup_environment(sc)
 	build_terrain(sc)
+	# Losetas de fuego (SueloFuego, solo visual) sobre la ruta de los enemigos
+	for pc in path_cells:
+		var fire := TDModels.load_model("SueloFuego", TDData.TILE)
+		if fire != null:
+			var fp := cell_pos(pc.x, pc.y)
+			fire.position = Vector3(fp.x, 0.05, fp.z)
+			world.add_child(fire)
 	var hq := TDModels.build_hq()
 	hq.position = base_pos
 	world.add_child(hq)

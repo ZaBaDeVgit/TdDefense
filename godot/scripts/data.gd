@@ -13,11 +13,11 @@ const SKILL_CD := {"misil": 22.0, "radar": 28.0, "nuke": 110.0, "shield": 45.0, 
 
 # Torres: dmg, cadencia (s entre disparos), alcance, splash, tierra/aire, cadena
 const TOWERS := {
-	"mg": {"name": "Ametralladora", "cost": 100, "color": "#ffb35c", "dmg": 9.0, "rate": 0.13, "range": 6.5, "ground": true, "air": false},
-	"missile": {"name": "Misiles", "cost": 150, "color": "#ff6b4a", "dmg": 70.0, "rate": 1.7, "range": 8.5, "splash": 1.9, "ground": true, "air": false},
-	"laser": {"name": "Láser", "cost": 200, "color": "#44c8ff", "dmg": 34.0, "rate": 0.55, "range": 9.5, "ground": true, "air": true},
-	"aa": {"name": "Antiaérea", "cost": 250, "color": "#ffd166", "dmg": 48.0, "rate": 0.9, "range": 10.5, "splash": 1.1, "ground": false, "air": true},
-	"tesla": {"name": "Eléctrica", "cost": 300, "color": "#7fe9ff", "dmg": 26.0, "rate": 1.0, "range": 6.0, "ground": true, "air": true, "chain": 3},
+	"mg": {"name": "Flechas", "cost": 100, "color": "#ffb35c", "dmg": 9.0, "rate": 0.13, "range": 6.5, "ground": true, "air": false},
+	"missile": {"name": "Cañón de asedio", "cost": 150, "color": "#ff6b4a", "dmg": 70.0, "rate": 1.7, "range": 8.5, "splash": 1.9, "ground": true, "air": false},
+	"laser": {"name": "Torre arcana", "cost": 200, "color": "#44c8ff", "dmg": 34.0, "rate": 0.55, "range": 9.5, "ground": true, "air": true},
+	"aa": {"name": "Espectral", "cost": 250, "color": "#ffd166", "dmg": 48.0, "rate": 0.9, "range": 10.5, "splash": 1.1, "ground": false, "air": true},
+	"tesla": {"name": "Torre de rayos", "cost": 300, "color": "#7fe9ff", "dmg": 26.0, "rate": 1.0, "range": 6.0, "ground": true, "air": true, "chain": 3},
 }
 const TOWER_ORDER := ["mg", "missile", "laser", "aa", "tesla"]
 
