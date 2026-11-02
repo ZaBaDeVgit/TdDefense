@@ -32,10 +32,13 @@ npm run dev        # http://localhost:5173
 ```
 
 ## Generar el ejecutable (Windows)
+Requiere Node.js 18+ y conexión a internet (descarga el Node para Windows).
 ```bash
-npm install
+npm install        # IMPRESCINDIBLE antes de generar nada (instala vite y postject)
 npm run exe        # genera release/TDDefense.exe (y build/TDDefense-linux para pruebas)
 ```
+
+Para la versión Electron (ventana nativa): `npm install` y luego `npm run dist:win`.
 `TDDefense.exe` es un único archivo: contiene el juego completo y un servidor local que solo escucha en `127.0.0.1`.
 Al ejecutarlo abre el juego en una ventana de Microsoft Edge/Chrome (modo aplicación) o en el navegador predeterminado.
 Cierra la consola para salir.
