@@ -1,0 +1,21 @@
+CREDITOS DE MODELOS 3D Y TEXTURAS - TD Defense
+==============================================
+
+Creador de los modelos, texturas y efectos incluidos en esta carpeta:
+  ZaBaDeV  (https://github.com/ZaBaDeVgit)
+
+Licencia: libre. Los archivos son de libre uso, incluido en el juego.
+
+Modelos (formato glTF binario, .glb):
+  Torres:    TorreFlecha, TorreDisparos, TorreMagia, TorreAnimals, TorreMina
+  Enemigos:  Enemigo1, Enemigo2, Enemigo3, Enemigo4, EnemigoBoss, EnemigoVolador, Kuro
+  Poderes:   Escudo, Rayo, Bomba
+  Escenario: SueloFuego, Fuego, Nieve
+  Premios:   CofrePremio
+
+Texturas: incluidas en cada .glb; Fuego.webp, Nieve.webp y SueloFuego_0.png
+son texturas sueltas del autor.
+
+Optimizacion: los modelos se han reducido (texturas a 1024 px, geometria
+simplificada en Escudo, Kuro y Rayo) para el rendimiento del juego. El autor
+original conserva todos los derechos sobre el contenido.
